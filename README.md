@@ -27,8 +27,8 @@ In a nutshell:
   solutions others are working on for a "common" macro that does this. (This isn't really a reason to fork,
   more just a note for the future)
 
-[yew](https://github.com/DenisKolodin/yew")
-[stdweb](https://github.com/koute/stdweb")
-[wasm-bindgen](https://github.com/rustwasm/wasm-bindgen)
-[wasm-bindgen-futures](https://github.com/rustwasm/wasm-bindgen/tree/master/crates/futures)
-[web_sys](https://github.com/rustwasm/wasm-bindgen/tree/master/crates/web-sys)
+[yew]: https://github.com/DenisKolodin/yew
+[stdweb]: https://github.com/koute/stdweb
+[wasm-bindgen]: https://github.com/rustwasm/wasm-bindgen
+[wasm-bindgen-futures]: https://github.com/rustwasm/wasm-bindgen/tree/master/crates/futures
+[web_sys]: https://github.com/rustwasm/wasm-bindgen/tree/master/crates/web-sys
