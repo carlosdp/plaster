@@ -1,14 +1,14 @@
 //! This module contains the implementation of a virtual component `VComp`.
 
+use super::{Reform, VDiff, VNode};
+use callback::Callback;
+use html::{Component, ComponentUpdate, NodeCell, Renderable, Scope};
 use std::any::TypeId;
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
-use stdweb::unstable::TryInto;
-use stdweb::web::{document, Element, INode, Node};
-use html::{Component, ComponentUpdate, Scope, NodeCell, Renderable};
-use callback::Callback;
-use super::{Reform, VDiff, VNode};
+use wasm_bindgen::JsCast;
+use web_sys::{window, Element, Node};
 use Hidden;
 
 type AnyProps = (TypeId, *mut Hidden);
@@ -78,7 +78,8 @@ impl<COMP: Component> VComp<COMP> {
                 // Ignore update till properties changed
                 if previous_props != new_props {
                     let props = new_props.as_ref().unwrap().clone();
-                    lazy_activator.borrow_mut()
+                    lazy_activator
+                        .borrow_mut()
                         .as_mut()
                         .expect("activator for child scope was not set (blind sender)")
                         .send(ComponentUpdate::Properties(props));
@@ -89,7 +90,8 @@ impl<COMP: Component> VComp<COMP> {
         let destroyer = {
             let lazy_activator = lazy_activator;
             move || {
-                lazy_activator.borrow_mut()
+                lazy_activator
+                    .borrow_mut()
                     .as_mut()
                     .expect("activator for child scope was not set (destroyer)")
                     .send(ComponentUpdate::Destroy);
@@ -198,17 +200,15 @@ where
     COMP: Component + 'static,
 {
     /// This methods mount a virtual component with a generator created with `lazy` call.
-    fn mount<T: INode>(
+    fn mount(
         &mut self,
-        parent: &T,
+        parent: &Node,
         ancestor: Node, // Any dummy expected
         props: AnyProps,
     ) {
         let element: Element = parent
-            .as_node()
-            .as_ref()
             .to_owned()
-            .try_into()
+            .dyn_into()
             .expect("element expected to mount VComp");
         (self.generator)(element, ancestor, props);
     }
@@ -229,7 +229,7 @@ where
         // Destroy the loop. It's impossible to use `Drop`,
         // because parts can be reused with `grab_sender_of`.
         (self.destroyer)(); // TODO Chech it works
-        // Keep the sibling in the cell and send a message `Drop` to a loop
+                            // Keep the sibling in the cell and send a message `Drop` to a loop
         self.cell.borrow_mut().take().and_then(|node| {
             let sibling = node.next_sibling();
             parent
@@ -278,23 +278,28 @@ where
                 // This is a workaround, because component should be mounted
                 // over ancestor element if it exists.
                 // There is created an empty text node to be replaced with mount call.
-                let element = document().create_text_node("");
+                let element = window()
+                    .expect("need window in context")
+                    .document()
+                    .expect("window should have document")
+                    .create_text_node("");
                 if let Some(sibling) = before {
                     parent
-                        .insert_before(&element, &sibling)
+                        .insert_before(&element, Some(&sibling))
                         .expect("can't insert dummy element for a component");
                 } else {
                     let precursor = precursor.and_then(|before| before.next_sibling());
                     if let Some(precursor) = precursor {
                         parent
-                            .insert_before(&element, &precursor)
+                            .insert_before(&element, Some(&precursor))
                             .expect("can't insert dummy element before precursor");
                     } else {
-                        parent.append_child(&element);
+                        parent
+                            .append_child(&element)
+                            .expect("could not append child to element");
                     }
                 }
-                let node = element.as_node().to_owned();
-                self.mount(parent, node, any_props);
+                self.mount(parent, element.into(), any_props);
             }
         }
         self.cell.borrow().as_ref().map(|node| node.to_owned())

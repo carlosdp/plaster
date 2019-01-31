@@ -103,8 +103,12 @@ where
                     onchange=|event| {
                         match event {
                             ChangeData::Select(elem) => {
-                                let value = elem.selected_index().map(|x| x as usize);
-                                Msg::Selected(value)
+                                let value = elem.selected_index();
+                                Msg::Selected(if value < 0 {
+                                    None
+                                } else {
+                                    Some(value as usize)
+                                })
                             }
                             _ => {
                                 unreachable!();

@@ -56,8 +56,14 @@
 //! ```
 //!
 
-#![deny(missing_docs, bare_trait_objects, anonymous_parameters, elided_lifetimes_in_paths)]
+#![deny(
+    missing_docs,
+    bare_trait_objects,
+    anonymous_parameters,
+    elided_lifetimes_in_paths
+)]
 #![recursion_limit = "512"]
+#![feature(try_from)]
 
 #[macro_use]
 extern crate failure;
@@ -67,47 +73,38 @@ extern crate http;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
-extern crate serde_json;
-extern crate bincode;
 extern crate anymap;
-extern crate slab;
-#[macro_use]
-extern crate stdweb;
-#[cfg(feature = "toml")]
-extern crate toml;
-#[cfg(feature = "yaml")]
-extern crate serde_yaml;
+extern crate bincode;
+extern crate js_sys;
 #[cfg(feature = "msgpack")]
 extern crate rmp_serde;
 #[cfg(feature = "cbor")]
 extern crate serde_cbor;
+extern crate serde_json;
+#[cfg(feature = "yaml")]
+extern crate serde_yaml;
+extern crate slab;
+#[cfg(feature = "toml")]
+extern crate toml;
+extern crate wasm_bindgen;
+extern crate web_sys;
 
 #[macro_use]
 pub mod macros;
+// todo: figure out what to do with this
+// pub mod agent;
+pub mod app;
+pub mod callback;
+pub mod components;
 pub mod format;
 pub mod html;
-pub mod app;
 pub mod prelude;
-pub mod services;
-pub mod virtual_dom;
-pub mod callback;
 pub mod scheduler;
-pub mod agent;
-pub mod components;
+pub mod virtual_dom;
 
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 type Shared<T> = Rc<RefCell<T>>;
 
 struct Hidden;
-
-/// Initializes yew framework. It should be called first.
-pub fn initialize() {
-    stdweb::initialize();
-}
-
-/// Starts event loop.
-pub fn run_loop() {
-    stdweb::event_loop();
-}

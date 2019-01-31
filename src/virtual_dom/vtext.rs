@@ -1,11 +1,11 @@
 //! This module contains the implementation of a virtual text node `VText`.
 
+use super::{Reform, VDiff, VNode};
+use html::{Component, Scope};
 use std::cmp::PartialEq;
 use std::fmt;
 use std::marker::PhantomData;
-use stdweb::web::{document, INode, Node, TextNode};
-use html::{Component, Scope};
-use super::{Reform, VDiff, VNode};
+use web_sys::{window, Node, Text};
 
 /// A type for a virtual
 /// [`TextNode`](https://developer.mozilla.org/en-US/docs/Web/API/Document/createTextNode)
@@ -14,7 +14,7 @@ pub struct VText<COMP: Component> {
     /// Contains a text of the node.
     pub text: String,
     /// A reference to the `TextNode`.
-    pub reference: Option<TextNode>,
+    pub reference: Option<Text>,
     _comp: PhantomData<COMP>,
 }
 
@@ -34,7 +34,9 @@ impl<COMP: Component> VDiff for VText<COMP> {
 
     /// Remove VTag from parent.
     fn detach(&mut self, parent: &Node) -> Option<Node> {
-        let node = self.reference.take()
+        let node = self
+            .reference
+            .take()
             .expect("tried to remove not rendered VText from DOM");
         let sibling = node.next_sibling();
         if parent.remove_child(&node).is_err() {
@@ -54,7 +56,10 @@ impl<COMP: Component> VDiff for VText<COMP> {
         opposite: Option<VNode<Self::Component>>,
         _: &Scope<Self::Component>,
     ) -> Option<Node> {
-        assert!(self.reference.is_none(), "reference is ignored so must not be set");
+        assert!(
+            self.reference.is_none(),
+            "reference is ignored so must not be set"
+        );
         let reform = {
             match opposite {
                 // If element matched this type
@@ -77,18 +82,24 @@ impl<COMP: Component> VDiff for VText<COMP> {
         match reform {
             Reform::Keep => {}
             Reform::Before(node) => {
-                let element = document().create_text_node(&self.text);
+                let element = window()
+                    .expect("context needs a window")
+                    .document()
+                    .expect("window needs a document")
+                    .create_text_node(&self.text);
                 if let Some(sibling) = node {
                     parent
-                        .insert_before(&element, &sibling)
+                        .insert_before(&element, Some(&sibling))
                         .expect("can't insert text before sibling");
                 } else {
-                    parent.append_child(&element);
+                    parent
+                        .append_child(&element)
+                        .expect("could not append child to node");
                 }
                 self.reference = Some(element);
             }
         }
-        self.reference.as_ref().map(|t| t.as_node().to_owned())
+        self.reference.as_ref().map(|t| t.to_owned().into())
     }
 }
 

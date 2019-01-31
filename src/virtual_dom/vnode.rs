@@ -4,7 +4,7 @@ use super::{VComp, VDiff, VList, VTag, VText};
 use html::{Component, Renderable, Scope};
 use std::cmp::PartialEq;
 use std::fmt;
-use stdweb::web::{INode, Node};
+use web_sys::Node;
 
 /// Bind virtual element to a DOM reference.
 pub enum VNode<COMP: Component> {
@@ -59,10 +59,12 @@ impl<COMP: Component> VDiff for VNode<COMP> {
                 };
                 if let Some(sibling) = sibling {
                     parent
-                        .insert_before(node, &sibling)
+                        .insert_before(node, Some(&sibling))
                         .expect("can't insert element before sibling");
                 } else {
-                    parent.append_child(node);
+                    parent
+                        .append_child(node)
+                        .expect("could not append child to node");
                 }
 
                 Some(node.to_owned())

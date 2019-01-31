@@ -8,14 +8,14 @@ pub mod vtext;
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-use stdweb::web::{Element, EventListenerHandle, Node};
+use web_sys::{Element, Node};
 
 pub use self::vcomp::VComp;
 pub use self::vlist::VList;
 pub use self::vnode::VNode;
 pub use self::vtag::VTag;
 pub use self::vtext::VText;
-use html::{Component, Scope};
+use html::{Component, EventListenerHandle, Scope};
 
 /// `Listener` trait is an universal implementation of an event listener
 /// which helps to bind Rust-listener to JS-listener (DOM).

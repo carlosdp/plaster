@@ -3,14 +3,45 @@
 //! Also this module contains declaration of `Component` trait which used
 //! to create own UI-components.
 
-use std::rc::Rc;
-use std::cell::RefCell;
-use stdweb::web::{Element, EventListenerHandle, INode, Node};
-use stdweb::web::html_element::SelectElement;
-use virtual_dom::{Listener, VDiff, VNode};
 use callback::Callback;
-use scheduler::{Runnable, scheduler};
+use js_sys::Function;
+use scheduler::{scheduler, Runnable};
+use std::cell::RefCell;
+use std::rc::Rc;
+use virtual_dom::{Listener, VDiff, VNode};
+use wasm_bindgen::prelude::*;
+use web_sys::{Element, EventTarget, HtmlSelectElement, Node};
 use Shared;
+
+/// A handle to an event listener
+pub struct EventListenerHandle {
+    event_target: EventTarget,
+    function: Function,
+    type_: String,
+}
+
+impl EventListenerHandle {
+    /// Create a new EventListenerHandle with the target Element, the converted Closure, and the
+    /// event type (ie. "onclick").
+    pub fn new(target: &EventTarget, function: &Function, type_: &str) -> EventListenerHandle {
+        target
+            .add_event_listener_with_callback(type_, function)
+            .expect("could not add event listener to element");
+
+        EventListenerHandle {
+            event_target: target.clone(),
+            function: function.clone(),
+            type_: type_.to_string(),
+        }
+    }
+
+    /// Remove the event listener from the target Element.
+    pub fn remove(&self) {
+        self.event_target
+            .remove_event_listener_with_callback(&self.type_, &self.function)
+            .expect("could not remove event listener");
+    }
+}
 
 /// This type indicates that component should be rendered again.
 pub type ShouldRender = bool;
@@ -34,7 +65,7 @@ pub trait Component: Sized + 'static {
         unimplemented!("you should implement `change` method for a component with properties")
     }
     /// Called for finalization on the final point of the component's lifetime.
-    fn destroy(&mut self) { } // TODO Replace with `Drop`
+    fn destroy(&mut self) {} // TODO Replace with `Drop`
 }
 
 /// Should be rendered relative to context and component environment.
@@ -44,7 +75,7 @@ pub trait Renderable<COMP: Component> {
 }
 
 /// Update message for a `Components` instance. Used by scope sender.
-pub(crate) enum ComponentUpdate< COMP: Component> {
+pub(crate) enum ComponentUpdate<COMP: Component> {
     /// Creating an instance of the component
     Create(ComponentLink<COMP>),
     /// Wraps messages for a component.
@@ -196,7 +227,10 @@ where
             return;
         }
         let mut should_update = false;
-        let upd = self.message.take().expect("component's envelope called twice");
+        let upd = self
+            .message
+            .take()
+            .expect("component's envelope called twice");
         // This loop pops one item, because the following
         // updates could try to borrow the same cell
         // Important! Don't use `while let` here, because it
@@ -210,20 +244,27 @@ where
                 let current_frame = this.component.as_ref().unwrap().view();
                 this.last_frame = Some(current_frame);
                 // First-time rendering the tree
-                let node = this.last_frame.as_mut()
-                    .unwrap()
-                    .apply(this.element.as_node(), None, this.ancestor.take(), &env);
+                let node = this.last_frame.as_mut().unwrap().apply(
+                    &this.element,
+                    None,
+                    this.ancestor.take(),
+                    &env,
+                );
                 if let Some(ref mut cell) = this.occupied {
                     *cell.borrow_mut() = node;
                 }
             }
             ComponentUpdate::Message(msg) => {
-                should_update |= this.component.as_mut()
+                should_update |= this
+                    .component
+                    .as_mut()
                     .expect("component was not created to process messages")
                     .update(msg);
             }
             ComponentUpdate::Properties(props) => {
-                should_update |= this.component.as_mut()
+                should_update |= this
+                    .component
+                    .as_mut()
                     .expect("component was not created to process properties")
                     .change(props);
             }
@@ -236,8 +277,7 @@ where
         if should_update {
             let mut next_frame = this.component.as_ref().unwrap().view();
             // Re-rendering the tree
-            let node =
-                next_frame.apply(this.element.as_node(), None, this.last_frame.take(), &env);
+            let node = next_frame.apply(&this.element, None, this.last_frame.take(), &env);
             if let Some(ref mut cell) = this.occupied {
                 *cell.borrow_mut() = node;
             }
@@ -253,8 +293,10 @@ macro_rules! impl_action {
     ($($action:ident($event:ident : $type:ident) -> $ret:ty => $convert:expr)*) => {$(
         /// An abstract implementation of a listener.
         pub mod $action {
-            use stdweb::web::{IEventTarget, Element};
-            use stdweb::web::event::{IEvent, $type};
+            use web_sys::Element;
+            #[allow(unused)]
+            use wasm_bindgen::JsCast;
+            use web_sys::$type;
             use super::*;
 
             /// A wrapper for a callback.
@@ -262,7 +304,7 @@ macro_rules! impl_action {
             pub struct Wrapper<F>(Option<F>);
 
             /// And event type which keeps the returned type.
-            pub type Event = $ret;
+            pub type EventTy = $ret;
 
             impl<F, MSG> From<F> for Wrapper<F>
             where
@@ -287,14 +329,14 @@ macro_rules! impl_action {
                     -> EventListenerHandle {
                     let handler = self.0.take().expect("tried to attach listener twice");
                     let this = element.clone();
-                    let listener = move |event: $type| {
+                    let listener = Closure::wrap(Box::new(move |event: $type| {
                         debug!("Event handler: {}", stringify!($type));
                         event.stop_propagation();
                         let handy_event: $ret = $convert(&this, event);
                         let msg = handler(handy_event);
                         activator.send_message(msg);
-                    };
-                    element.add_event_listener(listener)
+                    }) as Box<dyn FnMut($type)>);
+                    EventListenerHandle::new(element, listener.as_ref().unchecked_ref(), stringify!($action))
                 }
             }
         }
@@ -303,78 +345,76 @@ macro_rules! impl_action {
 
 // Inspired by: http://package.elm-lang.org/packages/elm-lang/html/2.0.0/Html-Events
 impl_action! {
-    onclick(event: ClickEvent) -> ClickEvent => |_, event| { event }
-    ondoubleclick(event: DoubleClickEvent) -> DoubleClickEvent => |_, event| { event }
-    onkeypress(event: KeyPressEvent) -> KeyPressEvent => |_, event| { event }
-    onkeydown(event: KeyDownEvent) -> KeyDownEvent => |_, event| { event }
-    onkeyup(event: KeyUpEvent) -> KeyUpEvent => |_, event| { event }
-    onmousemove(event: MouseMoveEvent) -> MouseMoveEvent => |_, event| { event }
-    onmousedown(event: MouseDownEvent) -> MouseDownEvent => |_, event| { event }
-    onmouseup(event: MouseUpEvent) -> MouseUpEvent => |_, event| { event }
-    onmouseover(event: MouseOverEvent) -> MouseOverEvent => |_, event| { event }
-    onmouseout(event: MouseOutEvent) -> MouseOutEvent => |_, event| { event }
-    onmouseenter(event: MouseEnterEvent) -> MouseEnterEvent => |_, event| { event }
-    onmouseleave(event: MouseLeaveEvent) -> MouseLeaveEvent => |_, event| { event }
-    onmousewheel(event: MouseWheelEvent) -> MouseWheelEvent => |_, event| { event }
-    ongotpointercapture(event: GotPointerCaptureEvent) -> GotPointerCaptureEvent => |_, event| { event }
-    onlostpointercapture(event: LostPointerCaptureEvent) -> LostPointerCaptureEvent => |_, event| { event }
-    onpointercancel(event: PointerCancelEvent) -> PointerCancelEvent => |_, event| { event }
-    onpointerdown(event: PointerDownEvent) -> PointerDownEvent => |_, event| { event }
-    onpointerenter(event: PointerEnterEvent) -> PointerEnterEvent => |_, event| { event }
-    onpointerleave(event: PointerLeaveEvent) -> PointerLeaveEvent => |_, event| { event }
-    onpointermove(event: PointerMoveEvent) -> PointerMoveEvent => |_, event| { event }
-    onpointerout(event: PointerOutEvent) -> PointerOutEvent => |_, event| { event }
-    onpointerover(event: PointerOverEvent) -> PointerOverEvent => |_, event| { event }
-    onpointerup(event: PointerUpEvent) -> PointerUpEvent => |_, event| { event }
-    onscroll(event: ScrollEvent) -> ScrollEvent => |_, event| { event }
-    onblur(event: BlurEvent) -> BlurEvent => |_, event| { event }
+    onclick(event: MouseEvent) -> MouseEvent => |_, event| { event }
+    ondoubleclick(event: MouseEvent) -> MouseEvent => |_, event| { event }
+    onkeypress(event: KeyboardEvent) -> KeyboardEvent => |_, event| { event }
+    onkeydown(event: KeyboardEvent) -> KeyboardEvent => |_, event| { event }
+    onkeyup(event: KeyboardEvent) -> KeyboardEvent => |_, event| { event }
+    onmousemove(event: MouseEvent) -> MouseEvent => |_, event| { event }
+    onmousedown(event: MouseEvent) -> MouseEvent => |_, event| { event }
+    onmouseup(event: MouseEvent) -> MouseEvent => |_, event| { event }
+    onmouseover(event: MouseEvent) -> MouseEvent => |_, event| { event }
+    onmouseout(event: MouseEvent) -> MouseEvent => |_, event| { event }
+    onmouseenter(event: MouseEvent) -> MouseEvent => |_, event| { event }
+    onmouseleave(event: MouseEvent) -> MouseEvent => |_, event| { event }
+    onmousewheel(event: MouseEvent) -> MouseEvent => |_, event| { event }
+    ongotpointercapture(event: PointerEvent) -> PointerEvent => |_, event| { event }
+    onlostpointercapture(event: PointerEvent) -> PointerEvent => |_, event| { event }
+    onpointercancel(event: PointerEvent) -> PointerEvent => |_, event| { event }
+    onpointerdown(event: PointerEvent) -> PointerEvent => |_, event| { event }
+    onpointerenter(event: PointerEvent) -> PointerEvent => |_, event| { event }
+    onpointerleave(event: PointerEvent) -> PointerEvent => |_, event| { event }
+    onpointermove(event: PointerEvent) -> PointerEvent => |_, event| { event }
+    onpointerout(event: PointerEvent) -> PointerEvent => |_, event| { event }
+    onpointerover(event: PointerEvent) -> PointerEvent => |_, event| { event }
+    onpointerup(event: PointerEvent) -> PointerEvent => |_, event| { event }
+    onscroll(event: MouseScrollEvent) -> MouseScrollEvent => |_, event| { event }
+    onblur(event: FocusEvent) -> FocusEvent => |_, event| { event }
     onfocus(event: FocusEvent) -> FocusEvent => |_, event| { event }
-    onsubmit(event: SubmitEvent) -> SubmitEvent => |_, event| { event }
-    ondragstart(event: DragStartEvent) -> DragStartEvent => |_, event| { event }
+    onsubmit(event: Event) -> Event => |_, event| { event }
+    ondragstart(event: DragEvent) -> DragEvent => |_, event| { event }
     ondrag(event: DragEvent) -> DragEvent => |_, event| { event }
-    ondragend(event: DragEndEvent) -> DragEndEvent => |_, event| { event }
-    ondragenter(event: DragEnterEvent) -> DragEnterEvent => |_, event| { event }
-    ondragleave(event: DragLeaveEvent) -> DragLeaveEvent => |_, event| { event }
-    ondragover(event: DragOverEvent) -> DragOverEvent => |_, event| { event }
-    ondragexit(event: DragExitEvent) -> DragExitEvent => |_, event| { event }
-    ondrop(event: DragDropEvent) -> DragDropEvent => |_, event| { event }
-    oncontextmenu(event: ContextMenuEvent) -> ContextMenuEvent => |_, event| { event }
+    ondragend(event: DragEvent) -> DragEvent => |_, event| { event }
+    ondragenter(event: DragEvent) -> DragEvent => |_, event| { event }
+    ondragleave(event: DragEvent) -> DragEvent => |_, event| { event }
+    ondragover(event: DragEvent) -> DragEvent => |_, event| { event }
+    ondragexit(event: DragEvent) -> DragEvent => |_, event| { event }
+    ondrop(event: DragEvent) -> DragEvent => |_, event| { event }
+    oncontextmenu(event: MouseEvent) -> MouseEvent => |_, event| { event }
     oninput(event: InputEvent) -> InputData => |this: &Element, _| {
-        use stdweb::web::html_element::{InputElement, TextAreaElement};
-        use stdweb::unstable::TryInto;
-        let value = match this.clone().try_into() {
+        use web_sys::{HtmlInputElement, HtmlTextAreaElement};
+        let value = match this.clone().dyn_into() {
             Ok(input) => {
-                let input: InputElement = input;
-                input.raw_value()
+                let input: HtmlInputElement = input;
+                input.value()
             }
-            Err(_e) => {
-                match this.clone().try_into() {
+            Err(_) => {
+                match this.clone().dyn_into() {
                     Ok(tae) => {
-                        let tae: TextAreaElement = tae;
+                        let tae: HtmlTextAreaElement = tae;
                         tae.value()
                     }
-                    Err(_e) => {
-                        panic!("only an InputElement or TextAreaElement can have an oninput event listener");
+                    Err(_) => {
+                        panic!("only an HtmlInputElement or HtmlTextAreaElement can have an oninput event listener");
                     }
                 }
             }
         };
         InputData { value }
     }
-    onchange(event: ChangeEvent) -> ChangeData => |this: &Element, _| {
-        use stdweb::web::html_element::{InputElement, TextAreaElement, SelectElement};
-        use stdweb::unstable::TryInto;
+    onchange(event: Event) -> ChangeData => |this: &Element, _| {
+        use web_sys::{HtmlInputElement, HtmlTextAreaElement, HtmlSelectElement};
         match this.node_name().as_ref() {
             "INPUT" => {
-                let input: InputElement = this.clone().try_into().unwrap();
-                ChangeData::Value(input.raw_value())
+                let input: HtmlInputElement = this.clone().dyn_into().unwrap();
+                ChangeData::Value(input.value())
             }
             "TEXTAREA" => {
-                let tae: TextAreaElement = this.clone().try_into().unwrap();
+                let tae: HtmlTextAreaElement = this.clone().dyn_into().unwrap();
                 ChangeData::Value(tae.value())
             }
             "SELECT" => {
-                let se: SelectElement = this.clone().try_into().unwrap();
+                let se: HtmlSelectElement = this.clone().dyn_into().unwrap();
                 ChangeData::Select(se)
             }
             _ => {
@@ -407,7 +447,7 @@ pub enum ChangeData {
     /// SelectElement in case of `<select>` element. You can use one of methods of SelectElement
     /// to collect your required data such as: `value`, `selected_index`, `selected_indices` or
     /// `selected_values`. You can also iterate throught `selected_options` yourself.
-    Select(SelectElement),
+    Select(HtmlSelectElement),
 }
 
 /// A bridging type for checking `href` attribute value.

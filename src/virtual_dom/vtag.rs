@@ -1,15 +1,13 @@
 //! This module contains the implementation of a virtual element node `VTag`.
 
+use super::{Attributes, Classes, Listener, Listeners, Patch, Reform, VDiff, VNode};
+use html::{Component, EventListenerHandle, Scope};
 use std::borrow::Cow;
 use std::cmp::PartialEq;
 use std::collections::HashSet;
 use std::fmt;
-use stdweb::web::html_element::TextAreaElement;
-use stdweb::unstable::TryFrom;
-use stdweb::web::html_element::InputElement;
-use stdweb::web::{document, Element, EventListenerHandle, IElement, INode, Node};
-use html::{Component, Scope};
-use super::{Attributes, Classes, Listener, Listeners, Patch, Reform, VDiff, VNode};
+use wasm_bindgen::JsCast;
+use web_sys::{window, Element, HtmlInputElement, HtmlTextAreaElement, Node};
 
 /// A type for a virtual
 /// [Element](https://developer.mozilla.org/en-US/docs/Web/API/Element)
@@ -28,17 +26,17 @@ pub struct VTag<COMP: Component> {
     /// List of attached classes.
     pub classes: Classes,
     /// Contains a value of an
-    /// [InputElement](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input).
+    /// [HtmlInputElement](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input).
     pub value: Option<String>,
     /// Contains
     /// [kind](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#Form_%3Cinput%3E_types)
-    /// value of an `InputElement`.
+    /// value of an `HtmlInputElement`.
     pub kind: Option<String>,
     /// Represents `checked` attribute of
     /// [input](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#attr-checked).
     /// It exists to override standard behavior of `checked` attribute, because
-    /// in original HTML it sets `defaultChecked` value of `InputElement`, but for reactive
-    /// frameworks it's more useful to control `checked` value of an `InputElement`.
+    /// in original HTML it sets `defaultChecked` value of `HtmlInputElement`, but for reactive
+    /// frameworks it's more useful to control `checked` value of an `HtmlInputElement`.
     pub checked: bool,
     /// _Service field_. Keeps handler for attached listeners
     /// to have an opportunity to drop them later.
@@ -92,20 +90,20 @@ impl<COMP: Component> VTag<COMP> {
     }
 
     /// Sets `value` for an
-    /// [InputElement](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input).
+    /// [HtmlInputElement](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input).
     pub fn set_value<T: ToString>(&mut self, value: &T) {
         self.value = Some(value.to_string());
     }
 
     /// Sets `kind` property of an
-    /// [InputElement](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input).
+    /// [HtmlInputElement](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input).
     /// Same as set `type` attribute.
     pub fn set_kind<T: ToString>(&mut self, value: &T) {
         self.kind = Some(value.to_string());
     }
 
     /// Sets `checked` property of an
-    /// [InputElement](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input).
+    /// [HtmlInputElement](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input).
     /// (Not a value of node's attribute).
     pub fn set_checked(&mut self, value: bool) {
         self.checked = value;
@@ -137,7 +135,8 @@ impl<COMP: Component> VTag<COMP> {
         let mut changes = Vec::new();
         if let &mut Some(ref ancestor) = ancestor {
             // Only change what is necessary.
-            let to_add = self.classes
+            let to_add = self
+                .classes
                 .difference(&ancestor.classes)
                 .map(|class| Patch::Add(class.to_owned(), ()));
             changes.extend(to_add);
@@ -148,7 +147,8 @@ impl<COMP: Component> VTag<COMP> {
             changes.extend(to_remove);
         } else {
             // Add everything
-            let to_add = self.classes
+            let to_add = self
+                .classes
                 .iter()
                 .map(|class| Patch::Add(class.to_owned(), ()));
             changes.extend(to_add);
@@ -172,7 +172,8 @@ impl<COMP: Component> VTag<COMP> {
             });
             changes.extend(to_add);
             for key in self_keys.intersection(&ancestor_keys) {
-                let self_value = self.attributes
+                let self_value = self
+                    .attributes
                     .get(*key)
                     .expect("attribute of self side lost");
                 let ancestor_value = ancestor
@@ -236,21 +237,17 @@ impl<COMP: Component> VTag<COMP> {
         }
     }
 
-    fn apply_diffs(
-        &mut self,
-        element: &Element,
-        ancestor: &mut Option<Self>,
-    ) {
+    fn apply_diffs(&mut self, element: &Element, ancestor: &mut Option<Self>) {
         // Update parameters
         let changes = self.diff_classes(ancestor);
         for change in changes {
             let list = element.class_list();
             match change {
                 Patch::Add(class, _) | Patch::Replace(class, _) => {
-                    list.add(&class).expect("can't add a class");
+                    list.add_1(&class).expect("can't add a class");
                 }
                 Patch::Remove(class) => {
-                    list.remove(&class).expect("can't remove a class");
+                    list.remove_1(&class).expect("can't remove a class");
                 }
             }
         }
@@ -271,23 +268,14 @@ impl<COMP: Component> VTag<COMP> {
         // I override behavior of attributes to make it more clear
         // and useful in templates. For example I interpret `checked`
         // attribute as `checked` parameter, not `defaultChecked` as browsers do
-        if let Ok(input) = InputElement::try_from(element.clone()) {
+        if let Ok(input) = element.clone().dyn_into::<HtmlInputElement>() {
             if let Some(change) = self.diff_kind(ancestor) {
                 match change {
                     Patch::Add(kind, _) | Patch::Replace(kind, _) => {
-                        //https://github.com/koute/stdweb/commit/3b85c941db00b8e3c942624afd50c5929085fb08
-                        //input.set_kind(&kind);
-                        let input = &input;
-                        js! { @(no_return)
-                            @{input}.type = @{kind};
-                        }
+                        input.set_type(&kind);
                     }
                     Patch::Remove(_) => {
-                        //input.set_kind("");
-                        let input = &input;
-                        js! { @(no_return)
-                            @{input}.type = "";
-                        }
+                        input.set_type("");
                     }
                 }
             }
@@ -295,10 +283,10 @@ impl<COMP: Component> VTag<COMP> {
             if let Some(change) = self.diff_value(ancestor) {
                 match change {
                     Patch::Add(kind, _) | Patch::Replace(kind, _) => {
-                        input.set_raw_value(&kind);
+                        input.set_value(&kind);
                     }
                     Patch::Remove(_) => {
-                        input.set_raw_value("");
+                        input.set_value("");
                     }
                 }
             }
@@ -306,7 +294,7 @@ impl<COMP: Component> VTag<COMP> {
             // IMPORTANT! This parameters have to be set every time
             // to prevent strange behaviour in browser when DOM changed
             set_checked(&input, self.checked);
-        } else if let Ok(tae) = TextAreaElement::try_from(element.clone()) {
+        } else if let Ok(tae) = element.clone().dyn_into::<HtmlTextAreaElement>() {
             if let Some(change) = self.diff_value(ancestor) {
                 match change {
                     Patch::Add(value, _) | Patch::Replace(value, _) => {
@@ -326,7 +314,9 @@ impl<COMP: Component> VDiff for VTag<COMP> {
 
     /// Remove VTag from parent.
     fn detach(&mut self, parent: &Node) -> Option<Node> {
-        let node = self.reference.take()
+        let node = self
+            .reference
+            .take()
             .expect("tried to remove not rendered VTag from DOM");
         let sibling = node.next_sibling();
         if parent.remove_child(&node).is_err() {
@@ -344,7 +334,10 @@ impl<COMP: Component> VDiff for VTag<COMP> {
         ancestor: Option<VNode<Self::Component>>,
         env: &Scope<Self::Component>,
     ) -> Option<Node> {
-        assert!(self.reference.is_none(), "reference is ignored so must not be set");
+        assert!(
+            self.reference.is_none(),
+            "reference is ignored so must not be set"
+        );
         let (reform, mut ancestor) = {
             match ancestor {
                 Some(VNode::VTag(mut vtag)) => {
@@ -363,9 +356,7 @@ impl<COMP: Component> VDiff for VTag<COMP> {
                     let node = vnode.detach(parent);
                     (Reform::Before(node), None)
                 }
-                None => {
-                    (Reform::Before(None), None)
-                },
+                None => (Reform::Before(None), None),
             }
         };
 
@@ -377,21 +368,26 @@ impl<COMP: Component> VDiff for VTag<COMP> {
         match reform {
             Reform::Keep => {}
             Reform::Before(before) => {
-                let element = document()
+                let element = window()
+                    .expect("context needs a window")
+                    .document()
+                    .expect("window needs a document")
                     .create_element(&self.tag)
                     .expect("can't create element for vtag");
                 if let Some(sibling) = before {
                     parent
-                        .insert_before(&element, &sibling)
+                        .insert_before(&element, Some(&sibling))
                         .expect("can't insert tag before sibling");
                 } else {
                     let precursor = precursor.and_then(|before| before.next_sibling());
                     if let Some(precursor) = precursor {
                         parent
-                            .insert_before(&element, &precursor)
+                            .insert_before(&element, Some(&precursor))
                             .expect("can't insert tag before precursor");
                     } else {
-                        parent.append_child(&element);
+                        parent
+                            .append_child(&element)
+                            .expect("could not append child to node");
                     }
                 }
                 self.reference = Some(element);
@@ -441,11 +437,10 @@ impl<COMP: Component> VDiff for VTag<COMP> {
             for pair in self_childs.into_iter().zip(ancestor_childs) {
                 match pair {
                     (Some(left), right) => {
-                        precursor =
-                            left.apply(element.as_node(), precursor.as_ref(), right, &env);
+                        precursor = left.apply(&element, precursor.as_ref(), right, &env);
                     }
                     (None, Some(mut right)) => {
-                        right.detach(element.as_node());
+                        right.detach(&element);
                     }
                     (None, None) => {
                         panic!("redundant iterations during diff");
@@ -453,7 +448,7 @@ impl<COMP: Component> VDiff for VTag<COMP> {
                 }
             }
         }
-        self.reference.as_ref().map(|e| e.as_node().to_owned())
+        self.reference.as_ref().map(|e| e.to_owned().into())
     }
 }
 
@@ -463,20 +458,24 @@ impl<COMP: Component> fmt::Debug for VTag<COMP> {
     }
 }
 
-/// `stdweb` doesn't have methods to work with attributes now.
-/// this is [workaround](https://github.com/koute/stdweb/issues/16#issuecomment-325195854)
+// todo: remove / inline these helper methods?
+/// Set attribute on an element.
 fn set_attribute(element: &Element, name: &str, value: &str) {
-    js!( @(no_return) @{element}.setAttribute( @{name}, @{value} ); );
+    element
+        .set_attribute(name, value)
+        .expect("could not set attribute on element");
 }
 
 /// Removes attribute from a element by name.
 fn remove_attribute(element: &Element, name: &str) {
-    js!( @(no_return) @{element}.removeAttribute( @{name} ); );
+    element
+        .remove_attribute(name)
+        .expect("could not remove attribute on element");
 }
 
-/// Set `checked` value for the `InputElement`.
-fn set_checked(input: &InputElement, value: bool) {
-    js!( @(no_return) @{input}.checked = @{value}; );
+/// Set `checked` value for the `HtmlInputElement`.
+fn set_checked(input: &HtmlInputElement, value: bool) {
+    input.set_checked(value);
 }
 
 impl<COMP: Component> PartialEq for VTag<COMP> {

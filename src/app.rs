@@ -1,8 +1,8 @@
 //! This module contains `App` sctruct which used to bootstrap
 //! a component in an isolated scope.
 
-use stdweb::web::{document, Element, INode, IParentNode};
-use html::{Scope, Component, Renderable};
+use html::{Component, Renderable, Scope};
+use web_sys::{window, Element};
 
 /// An application instance.
 pub struct App<COMP: Component> {
@@ -23,7 +23,10 @@ where
     /// Alias to `mount("body", ...)`.
     pub fn mount_to_body(self) -> Scope<COMP> {
         // Bootstrap the component for `Window` environment only (not for `Worker`)
-        let element = document()
+        let element = window()
+            .expect("context needs a window")
+            .document()
+            .expect("window needs a document")
             .query_selector("body")
             .expect("can't get body node for rendering")
             .expect("can't unwrap body node");
@@ -46,4 +49,3 @@ fn clear_element(element: &Element) {
         element.remove_child(&child).expect("can't remove a child");
     }
 }
-
