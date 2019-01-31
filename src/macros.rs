@@ -4,6 +4,7 @@
 use html::Component;
 use virtual_dom::{Listener, VNode};
 
+/// some docs
 #[macro_export]
 macro_rules! html_impl {
     ($stack:ident (< > $($tail:tt)*)) => {
@@ -273,6 +274,7 @@ macro_rules! html_impl {
     };
 }
 
+/// some docs
 // This entrypoint and implementation had separated to prevent infinite recursion.
 #[macro_export]
 macro_rules! html {
