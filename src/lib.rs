@@ -63,29 +63,10 @@
     elided_lifetimes_in_paths
 )]
 #![recursion_limit = "512"]
-#![feature(try_from)]
 
 #[macro_use]
-extern crate failure;
-#[macro_use]
 extern crate log;
-extern crate http;
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-extern crate anymap;
-extern crate bincode;
 extern crate js_sys;
-#[cfg(feature = "msgpack")]
-extern crate rmp_serde;
-#[cfg(feature = "cbor")]
-extern crate serde_cbor;
-extern crate serde_json;
-#[cfg(feature = "yaml")]
-extern crate serde_yaml;
-extern crate slab;
-#[cfg(feature = "toml")]
-extern crate toml;
 extern crate wasm_bindgen;
 extern crate web_sys;
 
@@ -96,7 +77,6 @@ pub mod macros;
 pub mod app;
 pub mod callback;
 pub mod components;
-pub mod format;
 pub mod html;
 pub mod prelude;
 pub mod scheduler;
