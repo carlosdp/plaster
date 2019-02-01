@@ -3,6 +3,8 @@ extern crate plaster;
 #[macro_use]
 extern crate wasm_bindgen_test;
 
+wasm_bindgen_test_configure!(run_in_browser);
+
 use plaster::prelude::*;
 use plaster::virtual_dom::VNode;
 
