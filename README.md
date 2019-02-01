@@ -1,5 +1,5 @@
-# shade
-**shade** is a modern Rust framework for creating frontend apps with WebAssembly.
+# plaster
+**plaster** is a modern Rust framework for creating frontend apps with WebAssembly.
 
 It was orginally forked from [yew](yew).
 
