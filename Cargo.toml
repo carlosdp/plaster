@@ -43,9 +43,5 @@ features = [
 [dev-dependencies]
 wasm-bindgen-test = "0.2"
 
-[features]
-default = []
-web_test = []
-
 [target.wasm32-unknown-unknown]
 runner = 'wasm-bindgen-test-runner'
