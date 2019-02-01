@@ -40,6 +40,9 @@ features = [
   "Window"
 ]
 
+[dev-dependencies]
+wasm-bindgen-test = "0.2"
+
 [features]
 default = []
 web_test = []

@@ -1,8 +1,10 @@
 #[macro_use]
-extern crate yew;
+extern crate plaster;
+#[macro_use]
+extern crate wasm_bindgen_test;
 
-use yew::prelude::*;
-use yew::virtual_dom::VNode;
+use plaster::prelude::*;
+use plaster::virtual_dom::VNode;
 
 struct Comp;
 
@@ -25,7 +27,7 @@ impl Renderable<Comp> for Comp {
     }
 }
 
-#[test]
+#[wasm_bindgen_test]
 fn check_fragments() {
     let fragment: VNode<Comp> = html! {
         <>

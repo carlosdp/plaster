@@ -1,16 +1,17 @@
-//! # Yew Framework - API Documentation
+//! # Plaster Framework - API Documentation
 //!
-//! Yew is a framework for web-client apps created with
+//! Plaster is a framework for web-client apps created with
 //! a modern Rust-to-Wasm compilation feature.
 //! This framework was highly inspired by
 //! [Elm](http://elm-lang.org/) and [React](https://reactjs.org/).
+//! Forked originally from [Yew](https://github.com/DenisKolodin/yew).
 //!
 //! Minimal example:
 //!
 //! ```rust
 //! #[macro_use]
-//! extern crate yew;
-//! use yew::prelude::*;
+//! extern crate plaster;
+//! use plaster::prelude::*;
 //!
 //! struct Model {
 //!     value: i64,
@@ -48,10 +49,9 @@
 //!     }
 //! }
 //!
+//! #[wasm_bindgen(start)]
 //! fn main() {
-//!     yew::initialize();
 //!     App::<Model>::new().mount_to_body();
-//!     yew::run_loop();
 //! }
 //! ```
 //!
