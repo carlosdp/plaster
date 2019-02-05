@@ -32,7 +32,7 @@ impl<T> Router<T> {
                 .location()
                 .pathname()
                 .unwrap_or("/".to_string());
-            trace!("plasterroutechange: {}", &path);
+            trace!("route change: {}", &path);
             *current_path_c.lock().unwrap() = path;
             callback_c.emit(());
         }) as Box<dyn FnMut(_)>);
@@ -41,6 +41,8 @@ impl<T> Router<T> {
 
         win.add_event_listener_with_callback("plasterroutechange", listener_function)
             .expect("could not attach global event listener");
+        win.add_event_listener_with_callback("popstate", listener_function)
+            .expect("could not attach popstate event listener");
 
         Router {
             routes: Vec::new(),
