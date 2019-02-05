@@ -4,33 +4,39 @@
 //! to create own UI-components.
 
 use callback::Callback;
-use js_sys::Function;
 use scheduler::{scheduler, Runnable};
 use std::cell::RefCell;
 use std::rc::Rc;
 use virtual_dom::{Listener, VDiff, VNode};
 use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
 use web_sys::{Element, EventTarget, HtmlSelectElement, Node};
 use Shared;
 
 /// A handle to an event listener
 pub struct EventListenerHandle {
     event_target: EventTarget,
-    function: Function,
+    closure: Closure<dyn FnMut(web_sys::Event)>,
     type_: String,
 }
 
 impl EventListenerHandle {
     /// Create a new EventListenerHandle with the target Element, the converted Closure, and the
     /// event type (ie. "onclick").
-    pub fn new(target: &EventTarget, function: &Function, type_: &str) -> EventListenerHandle {
+    pub fn new(
+        target: &EventTarget,
+        closure: Closure<dyn FnMut(web_sys::Event)>,
+        type_: &str,
+    ) -> EventListenerHandle {
         target
-            .add_event_listener_with_callback(type_, function)
+            .add_event_listener_with_callback(type_, closure.as_ref().unchecked_ref())
             .expect("could not add event listener to element");
+
+        trace!("add_event_listener: {}", type_);
 
         EventListenerHandle {
             event_target: target.clone(),
-            function: function.clone(),
+            closure: closure,
             type_: type_.to_string(),
         }
     }
@@ -38,7 +44,7 @@ impl EventListenerHandle {
     /// Remove the event listener from the target Element.
     pub fn remove(&self) {
         self.event_target
-            .remove_event_listener_with_callback(&self.type_, &self.function)
+            .remove_event_listener_with_callback(&self.type_, self.closure.as_ref().unchecked_ref())
             .expect("could not remove event listener");
     }
 }
@@ -329,14 +335,18 @@ macro_rules! impl_action {
                     -> EventListenerHandle {
                     let handler = self.0.take().expect("tried to attach listener twice");
                     let this = element.clone();
-                    let listener = Closure::wrap(Box::new(move |event: $type| {
+                    let listener = Closure::wrap(Box::new(move |event: web_sys::Event| {
                         debug!("Event handler: {}", stringify!($type));
-                        event.stop_propagation();
-                        let handy_event: $ret = $convert(&this, event);
-                        let msg = handler(handy_event);
-                        activator.send_message(msg);
-                    }) as Box<dyn FnMut($type)>);
-                    EventListenerHandle::new(element, listener.as_ref().unchecked_ref(), stringify!($action))
+                        if let Ok(event) = event.dyn_into::<$type>() {
+                            event.stop_propagation();
+                            let handy_event: $ret = $convert(&this, event);
+                            let msg = handler(handy_event);
+                            activator.send_message(msg);
+                        } else {
+                            error!("could not cast event into {}", stringify!($type));
+                        }
+                    }) as Box<dyn FnMut(web_sys::Event)>);
+                    EventListenerHandle::new(element, listener, stringify!($event))
                 }
             }
         }
@@ -345,43 +355,43 @@ macro_rules! impl_action {
 
 // Inspired by: http://package.elm-lang.org/packages/elm-lang/html/2.0.0/Html-Events
 impl_action! {
-    onclick(event: MouseEvent) -> MouseEvent => |_, event| { event }
-    ondoubleclick(event: MouseEvent) -> MouseEvent => |_, event| { event }
-    onkeypress(event: KeyboardEvent) -> KeyboardEvent => |_, event| { event }
-    onkeydown(event: KeyboardEvent) -> KeyboardEvent => |_, event| { event }
-    onkeyup(event: KeyboardEvent) -> KeyboardEvent => |_, event| { event }
-    onmousemove(event: MouseEvent) -> MouseEvent => |_, event| { event }
-    onmousedown(event: MouseEvent) -> MouseEvent => |_, event| { event }
-    onmouseup(event: MouseEvent) -> MouseEvent => |_, event| { event }
-    onmouseover(event: MouseEvent) -> MouseEvent => |_, event| { event }
-    onmouseout(event: MouseEvent) -> MouseEvent => |_, event| { event }
-    onmouseenter(event: MouseEvent) -> MouseEvent => |_, event| { event }
-    onmouseleave(event: MouseEvent) -> MouseEvent => |_, event| { event }
-    onmousewheel(event: MouseEvent) -> MouseEvent => |_, event| { event }
-    ongotpointercapture(event: PointerEvent) -> PointerEvent => |_, event| { event }
-    onlostpointercapture(event: PointerEvent) -> PointerEvent => |_, event| { event }
-    onpointercancel(event: PointerEvent) -> PointerEvent => |_, event| { event }
-    onpointerdown(event: PointerEvent) -> PointerEvent => |_, event| { event }
-    onpointerenter(event: PointerEvent) -> PointerEvent => |_, event| { event }
-    onpointerleave(event: PointerEvent) -> PointerEvent => |_, event| { event }
-    onpointermove(event: PointerEvent) -> PointerEvent => |_, event| { event }
-    onpointerout(event: PointerEvent) -> PointerEvent => |_, event| { event }
-    onpointerover(event: PointerEvent) -> PointerEvent => |_, event| { event }
-    onpointerup(event: PointerEvent) -> PointerEvent => |_, event| { event }
-    onscroll(event: MouseScrollEvent) -> MouseScrollEvent => |_, event| { event }
-    onblur(event: FocusEvent) -> FocusEvent => |_, event| { event }
-    onfocus(event: FocusEvent) -> FocusEvent => |_, event| { event }
-    onsubmit(event: Event) -> Event => |_, event| { event }
-    ondragstart(event: DragEvent) -> DragEvent => |_, event| { event }
-    ondrag(event: DragEvent) -> DragEvent => |_, event| { event }
-    ondragend(event: DragEvent) -> DragEvent => |_, event| { event }
-    ondragenter(event: DragEvent) -> DragEvent => |_, event| { event }
-    ondragleave(event: DragEvent) -> DragEvent => |_, event| { event }
-    ondragover(event: DragEvent) -> DragEvent => |_, event| { event }
-    ondragexit(event: DragEvent) -> DragEvent => |_, event| { event }
-    ondrop(event: DragEvent) -> DragEvent => |_, event| { event }
-    oncontextmenu(event: MouseEvent) -> MouseEvent => |_, event| { event }
-    oninput(event: InputEvent) -> InputData => |this: &Element, _| {
+    onclick(click: MouseEvent) -> MouseEvent => |_, event| { event }
+    ondoubleclick(doubleclick: MouseEvent) -> MouseEvent => |_, event| { event }
+    onkeypress(keypress: KeyboardEvent) -> KeyboardEvent => |_, event| { event }
+    onkeydown(keydown: KeyboardEvent) -> KeyboardEvent => |_, event| { event }
+    onkeyup(keyup: KeyboardEvent) -> KeyboardEvent => |_, event| { event }
+    onmousemove(mousemove: MouseEvent) -> MouseEvent => |_, event| { event }
+    onmousedown(mousedown: MouseEvent) -> MouseEvent => |_, event| { event }
+    onmouseup(mouseup: MouseEvent) -> MouseEvent => |_, event| { event }
+    onmouseover(mouseover: MouseEvent) -> MouseEvent => |_, event| { event }
+    onmouseout(mouseout: MouseEvent) -> MouseEvent => |_, event| { event }
+    onmouseenter(mouseenter: MouseEvent) -> MouseEvent => |_, event| { event }
+    onmouseleave(mouseleave: MouseEvent) -> MouseEvent => |_, event| { event }
+    onmousewheel(mousewheel: MouseEvent) -> MouseEvent => |_, event| { event }
+    ongotpointercapture(gotpointercapture: PointerEvent) -> PointerEvent => |_, event| { event }
+    onlostpointercapture(lostpointercapture: PointerEvent) -> PointerEvent => |_, event| { event }
+    onpointercancel(pointercancel: PointerEvent) -> PointerEvent => |_, event| { event }
+    onpointerdown(pointerdown: PointerEvent) -> PointerEvent => |_, event| { event }
+    onpointerenter(pointerenter: PointerEvent) -> PointerEvent => |_, event| { event }
+    onpointerleave(pointerleave: PointerEvent) -> PointerEvent => |_, event| { event }
+    onpointermove(pointermove: PointerEvent) -> PointerEvent => |_, event| { event }
+    onpointerout(pointerout: PointerEvent) -> PointerEvent => |_, event| { event }
+    onpointerover(pointerover: PointerEvent) -> PointerEvent => |_, event| { event }
+    onpointerup(pointerup: PointerEvent) -> PointerEvent => |_, event| { event }
+    onscroll(scroll: MouseScrollEvent) -> MouseScrollEvent => |_, event| { event }
+    onblur(blur: FocusEvent) -> FocusEvent => |_, event| { event }
+    onfocus(focus: FocusEvent) -> FocusEvent => |_, event| { event }
+    onsubmit(submit: Event) -> Event => |_, event| { event }
+    ondragstart(dragstart: DragEvent) -> DragEvent => |_, event| { event }
+    ondrag(drag: DragEvent) -> DragEvent => |_, event| { event }
+    ondragend(dragend: DragEvent) -> DragEvent => |_, event| { event }
+    ondragenter(dragenter: DragEvent) -> DragEvent => |_, event| { event }
+    ondragleave(dragleave: DragEvent) -> DragEvent => |_, event| { event }
+    ondragover(dragover: DragEvent) -> DragEvent => |_, event| { event }
+    ondragexit(dragexit: DragEvent) -> DragEvent => |_, event| { event }
+    ondrop(drop: DragEvent) -> DragEvent => |_, event| { event }
+    oncontextmenu(contextmenu: MouseEvent) -> MouseEvent => |_, event| { event }
+    oninput(input: InputEvent) -> InputData => |this: &Element, _| {
         use web_sys::{HtmlInputElement, HtmlTextAreaElement};
         let value = match this.clone().dyn_into() {
             Ok(input) => {
@@ -402,7 +412,7 @@ impl_action! {
         };
         InputData { value }
     }
-    onchange(event: Event) -> ChangeData => |this: &Element, _| {
+    onchange(change: Event) -> ChangeData => |this: &Element, _| {
         use web_sys::{HtmlInputElement, HtmlTextAreaElement, HtmlSelectElement};
         match this.node_name().as_ref() {
             "INPUT" => {
