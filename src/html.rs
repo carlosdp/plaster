@@ -66,12 +66,12 @@ pub trait Component: Sized + 'static {
     /// Called everytime when a messages of `Msg` type received. It also takes a
     /// reference to a context.
     fn update(&mut self, msg: Self::Message) -> ShouldRender;
+    /// Called after an update is applied to the DOM
+    fn post_update(&self) {}
     /// This method called when properties changes, and once when component created.
     fn change(&mut self, _: Self::Properties) -> ShouldRender {
         unimplemented!("you should implement `change` method for a component with properties")
     }
-    /// Called for finalization on the final point of the component's lifetime.
-    fn destroy(&mut self) {} // TODO Replace with `Drop`
 }
 
 /// Should be rendered relative to context and component environment.
@@ -275,8 +275,7 @@ where
                     .change(props);
             }
             ComponentUpdate::Destroy => {
-                // TODO this.component.take() instead of destroyed
-                this.component.as_mut().unwrap().destroy();
+                this.component.take();
                 this.destroyed = true;
             }
         }
@@ -287,6 +286,7 @@ where
             if let Some(ref mut cell) = this.occupied {
                 *cell.borrow_mut() = node;
             }
+            this.component.as_ref().unwrap().post_update();
             this.last_frame = Some(next_frame);
         }
     }
