@@ -66,8 +66,6 @@ pub trait Component: Sized + 'static {
     /// Called everytime when a messages of `Msg` type received. It also takes a
     /// reference to a context.
     fn update(&mut self, msg: Self::Message) -> ShouldRender;
-    /// Called after an update is applied to the DOM
-    fn post_update(&self) {}
     /// This method called when properties changes, and once when component created.
     fn change(&mut self, _: Self::Properties) -> ShouldRender {
         unimplemented!("you should implement `change` method for a component with properties")
@@ -109,7 +107,8 @@ where
     }
 
     /// This method sends messages back to the component's loop.
-    pub fn send_back<F, IN>(&mut self, function: F) -> Callback<IN>
+    // todo: find a way to make this require &mut again, but handle paramaterized callbacks in view
+    pub fn send_back<F, IN>(&self, function: F) -> Callback<IN>
     where
         F: Fn(IN) -> COMP::Message + 'static,
     {
@@ -286,7 +285,6 @@ where
             if let Some(ref mut cell) = this.occupied {
                 *cell.borrow_mut() = node;
             }
-            this.component.as_ref().unwrap().post_update();
             this.last_frame = Some(next_frame);
         }
     }

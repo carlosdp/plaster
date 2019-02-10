@@ -115,7 +115,7 @@ impl<COMP: Component> fmt::Debug for VNode<COMP> {
             VNode::VTag(ref vtag) => vtag.fmt(f),
             VNode::VText(ref vtext) => vtext.fmt(f),
             VNode::VComp(_) => "Component<>".fmt(f),
-            VNode::VList(_) => "List<>".fmt(f),
+            VNode::VList(ref vlist) => vlist.fmt(f),
             VNode::VRef(_) => "NodeReference<>".fmt(f),
         }
     }

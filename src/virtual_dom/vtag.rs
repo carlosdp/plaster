@@ -454,7 +454,11 @@ impl<COMP: Component> VDiff for VTag<COMP> {
 
 impl<COMP: Component> fmt::Debug for VTag<COMP> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "VTag {{ tag: {} }}", self.tag)
+        write!(
+            f,
+            "VTag {{ tag: {}, children: {:?} }}",
+            self.tag, self.childs
+        )
     }
 }
 

@@ -94,3 +94,9 @@ impl<COMP: Component> VDiff for VList<COMP> {
         precursor
     }
 }
+
+impl<COMP: Component> std::fmt::Debug for VList<COMP> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "VList [ {:?} ]", self.childs)
+    }
+}
