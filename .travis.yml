@@ -9,7 +9,7 @@ install:
   - rustup target add wasm32-unknown-unknown
   # Downloads a `wasm-bindgen` release binary from https://github.com/rustwasm/wasm-bindgen/releases.
   # Alternatively, use `wasm-pack` to manage `wasm-bindgen` binaries for you
-  - curl -OL https://github.com/rustwasm/wasm-bindgen/releases/download/0.2.33/wasm-bindgen-0.2.36-x86_64-unknown-linux-musl.tar.gz
+  - curl -OL https://github.com/rustwasm/wasm-bindgen/releases/download/0.2.36/wasm-bindgen-0.2.36-x86_64-unknown-linux-musl.tar.gz
   - tar xf wasm-bindgen-0.2.36-x86_64-unknown-linux-musl.tar.gz
   - chmod +x wasm-bindgen-0.2.36-x86_64-unknown-linux-musl/wasm-bindgen
   # Moves the binaries to a directory that is in your PATH
