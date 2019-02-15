@@ -66,8 +66,10 @@
 
 #[macro_use]
 extern crate log;
+extern crate futures;
 extern crate js_sys;
 extern crate wasm_bindgen;
+extern crate wasm_bindgen_futures;
 extern crate web_sys;
 
 #[macro_use]

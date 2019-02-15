@@ -4,12 +4,14 @@
 //! to create own UI-components.
 
 use callback::Callback;
+use futures::Future;
 use scheduler::{scheduler, Runnable};
 use std::cell::RefCell;
 use std::rc::Rc;
 use virtual_dom::{Listener, VDiff, VNode};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+use wasm_bindgen_futures::future_to_promise;
 use web_sys::{Element, EventTarget, HtmlSelectElement, Node};
 use Shared;
 
@@ -123,6 +125,25 @@ where
     /// This method sends a message to this component immediately.
     pub fn send_self(&mut self, msg: COMP::Message) {
         self.scope.send_message(msg);
+    }
+
+    /// This method processes a Future that returns a message and sends it back to the component's
+    /// loop.
+    pub fn send_future<
+        F: Future<Item = COMP::Message, Error = impl std::error::Error + 'static> + 'static,
+    >(
+        &self,
+        future: F,
+    ) {
+        let mut scope = self.scope.clone();
+
+        let js_future = future
+            .and_then(move |message| {
+                scope.send_message(message);
+                Ok(JsValue::NULL)
+            })
+            .map_err(|e| JsValue::from_str(&format!("{}", e)));
+        future_to_promise(js_future);
     }
 }
 
