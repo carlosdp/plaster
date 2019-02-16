@@ -3,7 +3,7 @@
 use super::{Reform, VDiff, VNode};
 use callback::Callback;
 use html::{Component, ComponentUpdate, NodeCell, Renderable, Scope};
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
@@ -74,16 +74,20 @@ impl<COMP: Component> VComp<COMP> {
                     let raw: *mut CHILD::Properties = ::std::mem::transmute(raw);
                     *Box::from_raw(raw)
                 };
-                let new_props = Some(props);
-                // Ignore update till properties changed
-                if previous_props != new_props {
-                    let props = new_props.as_ref().unwrap().clone();
-                    lazy_activator
-                        .borrow_mut()
-                        .as_mut()
-                        .expect("activator for child scope was not set (blind sender)")
-                        .send(ComponentUpdate::Properties(props));
-                    previous_props = new_props;
+
+                // If the properties type is unit, we don't ever update properties
+                if !is_unit(&props) {
+                    let new_props = Some(props);
+                    // Ignore update till properties changed
+                    if previous_props != new_props {
+                        let props = new_props.as_ref().unwrap().clone();
+                        lazy_activator
+                            .borrow_mut()
+                            .as_mut()
+                            .expect("activator for child scope was not set (blind sender)")
+                            .send(ComponentUpdate::Properties(props));
+                        previous_props = new_props;
+                    }
                 }
             }
         };
@@ -137,6 +141,11 @@ impl<COMP: Component> VComp<COMP> {
         self.blind_sender = other.blind_sender;
         self.destroyer = other.destroyer;
     }
+}
+
+/// Returns true if the passed in reference is a reference to a unit type variable
+fn is_unit<T: ?Sized + Any>(_t: &T) -> bool {
+    TypeId::of::<T>() == TypeId::of::<()>()
 }
 
 /// Converts property and attach lazy components to it.
