@@ -12,7 +12,7 @@ use virtual_dom::{Listener, VDiff, VNode};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::future_to_promise;
-use web_sys::{Element, EventTarget, HtmlSelectElement, Node};
+use web_sys::{window, Element, EventTarget, HtmlSelectElement, Node};
 use Shared;
 
 /// A handle to an event listener
@@ -144,6 +144,29 @@ where
             })
             .map_err(|e| JsValue::from_str(&format!("{}", e)));
         future_to_promise(js_future);
+    }
+
+    /// This method creates an event listener on the window for the specified event that
+    /// will fire the closure and send the message to the message loop when fired.
+    pub fn connect_event<F, IN>(&self, event: &str, function: F)
+    where
+        F: Fn(IN) -> COMP::Message + 'static,
+        IN: wasm_bindgen::convert::FromWasmAbi + 'static,
+    {
+        let scope = self.scope.clone();
+        let closure = Closure::wrap(Box::new(move |input| {
+            let output = function(input);
+            scope.clone().send_message(output);
+        }) as Box<dyn FnMut(IN)>);
+
+        // todo: handle error
+        window()
+            .expect("need a window context")
+            .add_event_listener_with_callback(event, closure.as_ref().unchecked_ref())
+            .expect("could not attach event listener");
+
+        // todo: fix this memory leak
+        closure.forget();
     }
 }
 
