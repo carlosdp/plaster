@@ -33,6 +33,19 @@ where
         self.mount(element)
     }
 
+    /// Alias to `mount()` that allows using a selector
+    pub fn mount_to_selector(self, selector: &str) -> Scope<COMP> {
+        let element = window()
+            .expect("context needs a window")
+            .document()
+            .expect("window needs a document")
+            .query_selector(selector)
+            .expect("can't get node for rendering")
+            .expect("can't unwrap body node");
+        clear_element(&element);
+        self.scope.mount_in_place(element, None, None, None)
+    }
+
     /// The main entrypoint of a yew program. It works similar as `program`
     /// function in Elm. You should provide an initial model, `update` function
     /// which will update the state of the model and a `view` function which
