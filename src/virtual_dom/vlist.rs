@@ -1,6 +1,7 @@
 //! This module contains fragments implementation.
 use super::{VDiff, VNode, VText};
 use html::{Component, Scope};
+use std::iter::FromIterator;
 use web_sys::Node;
 
 /// This struct represents a fragment of the Virtual DOM tree.
@@ -12,6 +13,18 @@ pub struct VList<COMP: Component> {
 impl<COMP: Component> From<Vec<VNode<COMP>>> for VList<COMP> {
     fn from(other: Vec<VNode<COMP>>) -> Self {
         VList { childs: other }
+    }
+}
+
+impl<COMP: Component> FromIterator<VNode<COMP>> for VList<COMP> {
+    fn from_iter<I: IntoIterator<Item = VNode<COMP>>>(iter: I) -> Self {
+        let mut list = VList::new();
+
+        for c in iter {
+            list.add_child(c);
+        }
+
+        list
     }
 }
 
