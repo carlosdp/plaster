@@ -1,0 +1,128 @@
+use crate::fields::text::TextField;
+use plaster::prelude::*;
+use std::collections::HashMap;
+
+/// A key/value field
+pub struct KeyValue {
+    label: Option<String>,
+    value: Vec<(String, String)>,
+    on_change: Option<Callback<HashMap<String, String>>>,
+}
+
+pub enum Msg {
+    ChangeKey(usize, String),
+    ChangeValue(usize, String),
+}
+
+#[derive(Default, Clone, PartialEq)]
+pub struct Props {
+    /// The input label
+    pub label: Option<String>,
+    /// The controlled value of the input
+    pub value: Option<HashMap<String, String>>,
+    /// A callback that is fired when the user changes the input value
+    pub on_change: Option<Callback<HashMap<String, String>>>,
+}
+
+impl Component for KeyValue {
+    type Message = Msg;
+    type Properties = Props;
+
+    fn create(props: Self::Properties, _context: ComponentLink<Self>) -> Self {
+        let initial_value = props
+            .value
+            .map(|h| h.into_iter().collect())
+            .unwrap_or(Vec::new());
+
+        KeyValue {
+            label: props.label,
+            value: initial_value,
+            on_change: props.on_change,
+        }
+    }
+
+    fn change(&mut self, props: Self::Properties) -> ShouldRender {
+        let mut updated = false;
+
+        if props.on_change != self.on_change {
+            self.on_change = props.on_change;
+            updated = true;
+        }
+
+        if let Some(value) = props.value {
+            self.value.iter_mut().for_each(|(k, v)| {
+                if let Some(val) = value.get(k) {
+                    if val != v {
+                        *v = val.to_string();
+                        updated = true;
+                    }
+                }
+            });
+        }
+
+        if props.label != self.label {
+            self.label = props.label;
+            updated = true;
+        }
+
+        updated
+    }
+
+    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+        match msg {
+            Msg::ChangeKey(i, value) => {
+                if self.value.len() > i {
+                    self.value.get_mut(i).unwrap().0 = value;
+
+                    if let Some(ref callback) = self.on_change {
+                        callback.emit(self.value.clone().into_iter().collect());
+                    }
+                }
+            }
+            Msg::ChangeValue(i, value) => {
+                if self.value.len() > i {
+                    self.value.get_mut(i).unwrap().1 = value;
+
+                    if let Some(ref callback) = self.on_change {
+                        callback.emit(self.value.clone().into_iter().collect());
+                    }
+                }
+            }
+        };
+
+        true
+    }
+}
+
+impl Renderable<KeyValue> for KeyValue {
+    fn view(&self) -> Html<Self> {
+        let label = self
+            .label
+            .as_ref()
+            .map(|l| html! { <label>{l}</label> })
+            // todo: render nothing instead
+            .unwrap_or(html! { <span /> });
+
+        let items = self.value.iter().enumerate().map(|(i, (k, v))| {
+            html! {
+                <div>
+                    <TextField:
+                        value=Some(k.to_string()),
+                        on_change=move |s| Msg::ChangeKey(i, s),
+                    />
+                    <TextField:
+                        value=Some(v.to_string()),
+                        on_change=move |s| Msg::ChangeValue(i, s),
+                    />
+                </div>
+            }
+        });
+
+        html! {
+            <div>
+                {label}
+                {for items}
+            </div>
+        }
+    }
+}
