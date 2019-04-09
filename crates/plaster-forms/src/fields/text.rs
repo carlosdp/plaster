@@ -77,7 +77,7 @@ impl Component for TextField {
 
 impl Renderable<TextField> for TextField {
     fn view(&self) -> Html<Self> {
-        let label = html! { <label>{&self.label}</label> };
+        let label = html! { <label style="margin-right: 10px",>{&self.label}</label> };
 
         let ty = if self.password { "password" } else { "text" };
 
