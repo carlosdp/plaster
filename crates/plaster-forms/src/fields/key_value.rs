@@ -13,6 +13,7 @@ pub enum Msg {
     ChangeKey(usize, String),
     ChangeValue(usize, String),
     AddKey,
+    DeleteKey(usize),
 }
 
 #[derive(Default, Clone, PartialEq)]
@@ -111,6 +112,15 @@ impl Component for KeyValue {
             Msg::AddKey => {
                 self.value.push((String::new(), String::new()));
             }
+            Msg::DeleteKey(i) => {
+                if self.value.len() > i {
+                    self.value.remove(i);
+
+                    if let Some(ref callback) = self.on_change {
+                        callback.emit(self.value.clone().into_iter().collect());
+                    }
+                }
+            }
         };
 
         true
@@ -122,13 +132,13 @@ impl Renderable<KeyValue> for KeyValue {
         let label = self
             .label
             .as_ref()
-            .map(|l| html! { <label>{l}</label> })
+            .map(|l| html! { <label style="margin-bottom: 5px",>{l}</label> })
             // todo: render nothing instead
             .unwrap_or(html! { <span /> });
 
         let items = self.value.iter().enumerate().map(|(i, (k, v))| {
             html! {
-                <div>
+                <div style="display: flex",>
                     <TextField:
                         value=Some(k.to_string()),
                         on_change=move |s| Msg::ChangeKey(i, s),
@@ -137,6 +147,10 @@ impl Renderable<KeyValue> for KeyValue {
                         value=Some(v.to_string()),
                         on_change=move |s| Msg::ChangeValue(i, s),
                     />
+                    <a
+                        href="",
+                        onclick=|e| { e.prevent_default(); Msg::DeleteKey(i) },
+                    >{"(-)"}</a>
                 </div>
             }
         });
