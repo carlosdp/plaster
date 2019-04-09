@@ -9,7 +9,7 @@ pub struct TextField {
 }
 
 pub enum Msg {
-    Change(ChangeData),
+    Change(InputData),
 }
 
 #[derive(Default, Clone, PartialEq)]
@@ -63,13 +63,11 @@ impl Component for TextField {
     fn update(&mut self, msg: Self::Message) -> ShouldRender {
         match msg {
             Msg::Change(data) => {
-                if let ChangeData::Value(value) = data {
-                    if let Some(ref callback) = self.on_change {
-                        callback.emit(value.clone());
-                    }
-
-                    self.value = value;
+                if let Some(ref callback) = self.on_change {
+                    callback.emit(data.value.clone());
                 }
+
+                self.value = data.value;
             }
         };
 
@@ -86,7 +84,7 @@ impl Renderable<TextField> for TextField {
         html! {
             <div>
                 {label}
-                <input type=ty, onchange=|data| Msg::Change(data), value=&self.value,/>
+                <input type=ty, oninput=|data| Msg::Change(data), value=&self.value,/>
             </div>
         }
     }

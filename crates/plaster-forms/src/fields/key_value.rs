@@ -12,6 +12,7 @@ pub struct KeyValue {
 pub enum Msg {
     ChangeKey(usize, String),
     ChangeValue(usize, String),
+    AddKey,
 }
 
 #[derive(Default, Clone, PartialEq)]
@@ -50,12 +51,31 @@ impl Component for KeyValue {
         }
 
         if let Some(value) = props.value {
-            self.value.iter_mut().for_each(|(k, v)| {
-                if let Some(val) = value.get(k) {
-                    if val != v {
-                        *v = val.to_string();
-                        updated = true;
+            let mut existing_keys = Vec::new();
+
+            self.value = self
+                .value
+                .clone()
+                .into_iter()
+                .filter_map(|(k, v)| {
+                    if let Some(val) = value.get(&k) {
+                        existing_keys.push(k.clone());
+
+                        if val != &v {
+                            updated = true;
+                            Some((k, val.to_string()))
+                        } else {
+                            Some((k, v))
+                        }
+                    } else {
+                        None
                     }
+                })
+                .collect();
+
+            value.into_iter().for_each(|(k, v)| {
+                if !existing_keys.contains(&k) {
+                    self.value.push((k, v));
                 }
             });
         }
@@ -87,6 +107,9 @@ impl Component for KeyValue {
                         callback.emit(self.value.clone().into_iter().collect());
                     }
                 }
+            }
+            Msg::AddKey => {
+                self.value.push((String::new(), String::new()));
             }
         };
 
@@ -122,6 +145,12 @@ impl Renderable<KeyValue> for KeyValue {
             <div>
                 {label}
                 {for items}
+                <div>
+                    <a
+                        href="",
+                        onclick=|e| { e.prevent_default(); Msg::AddKey },
+                    >{"+"}</a>
+                </div>
             </div>
         }
     }
