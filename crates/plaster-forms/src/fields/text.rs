@@ -5,11 +5,14 @@ pub struct TextField {
     label: String,
     value: String,
     password: bool,
+    inline: bool,
     on_change: Option<Callback<String>>,
+    on_blur: Option<Callback<()>>,
 }
 
 pub enum Msg {
     Change(InputData),
+    Blur,
 }
 
 #[derive(Default, Clone, PartialEq)]
@@ -20,8 +23,12 @@ pub struct Props {
     pub value: Option<String>,
     /// Whether or not this is a password field
     pub password: bool,
+    /// Whether or not the field should be inline
+    pub inline: bool,
     /// A callback that is fired when the user changes the input value
     pub on_change: Option<Callback<String>>,
+    /// A callback that is fired when the field loses focus
+    pub on_blur: Option<Callback<()>>,
 }
 
 impl Component for TextField {
@@ -33,17 +40,14 @@ impl Component for TextField {
             label: props.label,
             value: props.value.unwrap_or(String::new()),
             password: props.password,
+            inline: props.inline,
             on_change: props.on_change,
+            on_blur: props.on_blur,
         }
     }
 
     fn change(&mut self, props: Self::Properties) -> ShouldRender {
         let mut updated = false;
-
-        if props.on_change != self.on_change {
-            self.on_change = props.on_change;
-            updated = true;
-        }
 
         if let Some(value) = props.value {
             if value != self.value {
@@ -57,6 +61,9 @@ impl Component for TextField {
             updated = true;
         }
 
+        self.on_change = props.on_change;
+        self.on_blur = props.on_blur;
+
         updated
     }
 
@@ -68,6 +75,11 @@ impl Component for TextField {
                 }
 
                 self.value = data.value;
+            }
+            Msg::Blur => {
+                if let Some(ref callback) = self.on_blur {
+                    callback.emit(());
+                }
             }
         };
 
@@ -81,10 +93,18 @@ impl Renderable<TextField> for TextField {
 
         let ty = if self.password { "password" } else { "text" };
 
+        let style = if self.inline { "display: inline" } else { "" };
+
         html! {
-            <div>
+            <div style=style,>
                 {label}
-                <input type=ty, oninput=|data| Msg::Change(data), value=&self.value,/>
+                <input
+                    type=ty,
+                    style=style,
+                    value=&self.value,
+                    oninput=|data| Msg::Change(data),
+                    onblur=|_| Msg::Blur,
+                />
             </div>
         }
     }
