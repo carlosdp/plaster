@@ -6,6 +6,7 @@ pub struct TextField {
     value: String,
     password: bool,
     inline: bool,
+    options: Vec<String>,
     on_change: Option<Callback<String>>,
     on_blur: Option<Callback<()>>,
 }
@@ -25,6 +26,8 @@ pub struct Props {
     pub password: bool,
     /// Whether or not the field should be inline
     pub inline: bool,
+    /// If it's an autocomplete, an array of options
+    pub options: Vec<String>,
     /// A callback that is fired when the user changes the input value
     pub on_change: Option<Callback<String>>,
     /// A callback that is fired when the field loses focus
@@ -41,6 +44,7 @@ impl Component for TextField {
             value: props.value.unwrap_or(String::new()),
             password: props.password,
             inline: props.inline,
+            options: props.options,
             on_change: props.on_change,
             on_blur: props.on_blur,
         }
@@ -95,6 +99,25 @@ impl Renderable<TextField> for TextField {
 
         let style = if self.inline { "display: inline" } else { "" };
 
+        let (list, options) = if self.options.len() > 0 {
+            let options = self.options.iter().map(|op| {
+                html! {
+                    <option value=&op, />
+                }
+            });
+
+            (
+                "some-list",
+                html! {
+                    <datalist id="some-list",>
+                        {for options}
+                    </datalist>
+                },
+            )
+        } else {
+            ("", html! { <span /> })
+        };
+
         html! {
             <div style=style,>
                 {label}
@@ -104,7 +127,9 @@ impl Renderable<TextField> for TextField {
                     value=&self.value,
                     oninput=|data| Msg::Change(data),
                     onblur=|_| Msg::Blur,
+                    list=list,
                 />
+                {options}
             </div>
         }
     }
