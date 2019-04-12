@@ -5,6 +5,7 @@ pub struct Select {
     label: String,
     search: String,
     searching: bool,
+    selected_option: i32,
     value: Option<String>,
     value_label: String,
     inline: bool,
@@ -15,9 +16,11 @@ pub struct Select {
 
 pub enum Msg {
     Change(InputData),
+    SoftSelect(usize),
     Select(String),
     Focus,
     Blur,
+    KeyDown(KeyboardEvent),
     Noop,
 }
 
@@ -43,7 +46,12 @@ impl Component for Select {
 
     fn create(props: Self::Properties, _context: ComponentLink<Self>) -> Self {
         let value_label = if let Some(ref value) = props.value {
-            props.options.iter().find(|x| &x.0 == value).map(|x| x.1.to_owned()).unwrap_or(String::new())
+            props
+                .options
+                .iter()
+                .find(|x| &x.0 == value)
+                .map(|x| x.1.to_owned())
+                .unwrap_or(String::new())
         } else {
             String::new()
         };
@@ -52,6 +60,7 @@ impl Component for Select {
             label: props.label,
             search: String::new(),
             searching: false,
+            selected_option: -1,
             value: props.value,
             value_label,
             inline: props.inline,
@@ -67,7 +76,12 @@ impl Component for Select {
         if props.value != self.value {
             self.value = props.value;
             self.value_label = if let Some(ref value) = self.value {
-                props.options.iter().find(|x| &x.0 == value).map(|x| x.1.to_owned()).unwrap_or(String::new())
+                props
+                    .options
+                    .iter()
+                    .find(|x| &x.0 == value)
+                    .map(|x| x.1.to_owned())
+                    .unwrap_or(String::new())
             } else {
                 String::new()
             };
@@ -95,8 +109,16 @@ impl Component for Select {
             Msg::Change(data) => {
                 self.search = data.value;
             }
+            Msg::SoftSelect(i) => {
+                self.selected_option = i as i32;
+            }
             Msg::Select(value) => {
-                self.value_label = self.options.iter().find(|x| x.0 == value).map(|x| x.1.to_owned()).unwrap_or(String::new());
+                self.value_label = self
+                    .options
+                    .iter()
+                    .find(|x| x.0 == value)
+                    .map(|x| x.1.to_owned())
+                    .unwrap_or(String::new());
                 self.value = Some(value);
                 self.searching = false;
 
@@ -114,6 +136,31 @@ impl Component for Select {
                     callback.emit(());
                 }
             }
+            Msg::KeyDown(e) => match e.key().as_str() {
+                "ArrowUp" => {
+                    if self.selected_option > 0 {
+                        self.selected_option -= 1;
+                    }
+                }
+                "ArrowDown" => {
+                    if self.selected_option < self.options.len() as i32 {
+                        self.selected_option += 1;
+                    }
+                }
+                "Enter" => {
+                    if self.selected_option >= 0 {
+                        let selected = self.options.get(self.selected_option as usize).unwrap();
+                        self.value_label = selected.1.clone();
+                        self.value = Some(selected.0.clone());
+                        self.searching = false;
+
+                        if let Some(ref callback) = self.on_change {
+                            callback.emit(self.value.clone());
+                        }
+                    }
+                }
+                _ => (),
+            },
             Msg::Noop => (),
         };
 
@@ -125,7 +172,11 @@ impl Renderable<Select> for Select {
     fn view(&self) -> Html<Self> {
         let label = html! { <label style="margin-right: 10px",>{&self.label}</label> };
 
-        let style = if self.inline { "display: inline-block; width: 190px;" } else { "width: 190px;" };
+        let style = if self.inline {
+            "display: inline-block; width: 190px;"
+        } else {
+            "width: 190px;"
+        };
 
         let value = if self.searching {
             &self.search
@@ -134,20 +185,33 @@ impl Renderable<Select> for Select {
         };
 
         let search_list = if self.searching {
-            let options = self.options.iter().map(|o| {
-                let value = o.0.to_owned();
+            let options = self
+                .options
+                .iter()
+                .filter(|o| o.1.to_lowercase().contains(&self.search.to_lowercase()))
+                .enumerate()
+                .map(|(i, o)| {
+                    let value = o.0.to_owned();
 
-                html! {
-                    <a
-                        href="",
-                        onmousedown=|e| { e.prevent_default(); Msg::Noop },
-                        onclick=|e| { e.prevent_default(); Msg::Select(value.clone()) },
-                    >{&o.1}</a>
-                }
-            });
+                    let style = if (i as i32) == self.selected_option {
+                        "text-decoration: none;color: #FFF;width:100%;background-color:blue;"
+                    } else {
+                        "text-decoration: none;color: #000;width:100%;"
+                    };
+
+                    html! {
+                        <a
+                            href="",
+                            style=style,
+                            onmousedown=|e| { e.prevent_default(); Msg::Noop },
+                            onmouseenter=|_| Msg::SoftSelect(i),
+                            onclick=|e| { e.prevent_default(); Msg::Select(value.clone()) },
+                        >{&o.1}</a>
+                    }
+                });
 
             html! {
-                <div style="position: absolute; margin: 0; height: 100px; width: 190px; background-color: white;",>
+                <div style="position: absolute; margin: 0; padding: 5px; height: 100px; width: 190px; background-color: white;",>
                     {for options}
                 </div>
             }
@@ -167,6 +231,7 @@ impl Renderable<Select> for Select {
                     oninput=|data| Msg::Change(data),
                     onfocus=|_| Msg::Focus,
                     onblur=|_| Msg::Blur,
+                    onkeydown=|e| Msg::KeyDown(e),
                 />
                 {search_list}
             </div>
