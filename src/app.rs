@@ -30,7 +30,7 @@ where
             .query_selector("body")
             .expect("can't get body node for rendering")
             .expect("can't unwrap body node");
-        self.mount(element)
+        self.mount(element, None)
     }
 
     /// Alias to `mount()` that allows using a selector
@@ -42,17 +42,21 @@ where
             .query_selector(selector)
             .expect("can't get node for rendering")
             .expect("can't unwrap body node");
-        clear_element(&element);
-        self.scope.mount_in_place(element, None, None, None)
+        self.mount(element, None)
+    }
+
+    /// Alias to `mount()` that allows passing in initial props
+    pub fn mount_with_props(self, element: Element, props: COMP::Properties) -> Scope<COMP> {
+        self.mount(element, Some(props))
     }
 
     /// The main entrypoint of a yew program. It works similar as `program`
     /// function in Elm. You should provide an initial model, `update` function
     /// which will update the state of the model and a `view` function which
     /// will render the model to a virtual DOM tree.
-    pub fn mount(self, element: Element) -> Scope<COMP> {
+    pub fn mount(self, element: Element, props: Option<COMP::Properties>) -> Scope<COMP> {
         clear_element(&element);
-        self.scope.mount_in_place(element, None, None, None)
+        self.scope.mount_in_place(element, None, None, props)
     }
 }
 
