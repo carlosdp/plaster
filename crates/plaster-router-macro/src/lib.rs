@@ -3,7 +3,6 @@ extern crate proc_macro;
 extern crate quote;
 
 use proc_macro::TokenStream;
-use std::collections::HashSet;
 
 #[proc_macro_derive(Routes, attributes(route))]
 pub fn plaster_router(input: TokenStream) -> TokenStream {
@@ -29,29 +28,30 @@ fn parse_enum(item: syn::ItemEnum) -> proc_macro2::TokenStream {
 
             let route_literal = syn::LitStr::new(route, proc_macro2::Span::call_site());
             let variant_ident = variant.ident;
-            let mut params = HashSet::new();
+            let mut params = Vec::new();
 
             for segment in route.split('/') {
                 if segment.len() > 0 && segment.as_bytes()[0] == b':' {
-                    params.insert(segment[1..].to_string());
+                    params.push(segment[1..].to_string());
                 } else if segment.len() > 0 && segment.as_bytes()[0] == b'*' {
-                    params.insert(segment[1..].to_string());
+                    params.push(segment[1..].to_string());
                 }
             }
 
             if params.len() > 0 {
                 if let syn::Fields::Named(fields) = variant.fields {
-                    let field_names: HashSet<String> = fields
-                        .named
-                        .iter()
-                        .map(|field| field.ident.as_ref().unwrap().to_string())
-                        .collect();
+                    // todo: make this optional
+                    // let field_names: Vec<String> = fields
+                    //     .named
+                    //     .iter()
+                    //     .map(|field| field.ident.as_ref().unwrap().to_string())
+                    //     .collect();
 
-                    if params.len() != field_names.len()
-                        || params.difference(&field_names).count() > 0
-                    {
-                        panic!("all params must have a field in the variant");
-                    }
+                    // if params.len() != field_names.len()
+                    //     || params.difference(&field_names).count() > 0
+                    // {
+                    //     panic!("all params must have a field in the variant");
+                    // }
 
                     let field_idents: Vec<_> = fields
                         .named
