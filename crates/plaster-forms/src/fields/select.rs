@@ -170,12 +170,10 @@ impl Component for Select {
 
 impl Renderable<Select> for Select {
     fn view(&self) -> Html<Self> {
-        let label = html! { <label style="margin-right: 10px",>{&self.label}</label> };
-
-        let style = if self.inline {
-            "display: inline-block; width: 190px;"
+        let class = if self.inline {
+            "select-inline"
         } else {
-            "width: 190px;"
+            "select"
         };
 
         let value = if self.searching {
@@ -193,16 +191,16 @@ impl Renderable<Select> for Select {
                 .map(|(i, o)| {
                     let value = o.0.to_owned();
 
-                    let style = if (i as i32) == self.selected_option {
-                        "text-decoration: none;color: #FFF;width:100%;background-color:blue;"
+                    let class = if (i as i32) == self.selected_option {
+                        "selected"
                     } else {
-                        "text-decoration: none;color: #000;width:100%;"
+                        ""
                     };
 
                     html! {
                         <a
                             href="",
-                            style=style,
+                            class=class,
                             onmousedown=|e| { e.prevent_default(); Msg::Noop },
                             onmouseenter=|_| Msg::SoftSelect(i),
                             onclick=|e| { e.prevent_default(); Msg::Select(value.clone()) },
@@ -211,7 +209,7 @@ impl Renderable<Select> for Select {
                 });
 
             html! {
-                <div style="position: absolute; margin: 0; padding: 5px; height: 100px; width: 190px; background-color: white;",>
+                <div class="select-drop",>
                     {for options}
                 </div>
             }
@@ -222,12 +220,13 @@ impl Renderable<Select> for Select {
         };
 
         html! {
-            <div style=style,>
-                {label}
+            <div class="select-wrapper",>
                 <input
                     type="text",
-                    style=style,
+                    class=class,
                     value=value,
+                    name="search",
+                    placeholder=&self.label,
                     oninput=|data| Msg::Change(data),
                     onfocus=|_| Msg::Focus,
                     onblur=|_| Msg::Blur,
