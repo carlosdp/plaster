@@ -4,6 +4,7 @@ use plaster::prelude::*;
 pub struct Checkbox {
     label: String,
     value: bool,
+    radio: bool,
     on_change: Option<Callback<bool>>,
 }
 
@@ -17,6 +18,8 @@ pub struct Props {
     pub label: String,
     /// The controlled value of the input
     pub value: bool,
+    /// Whether this should be a radio button
+    pub radio: bool,
     /// A callback that is fired when the user changes the input value
     pub on_change: Option<Callback<bool>>,
 }
@@ -29,6 +32,7 @@ impl Component for Checkbox {
         Checkbox {
             label: props.label,
             value: props.value,
+            radio: props.radio,
             on_change: props.on_change,
         }
     }
@@ -36,6 +40,7 @@ impl Component for Checkbox {
     fn change(&mut self, props: Self::Properties) -> ShouldRender {
         self.label = props.label;
         self.value = props.value;
+        self.radio = props.radio;
         self.on_change = props.on_change;
 
         true
@@ -58,10 +63,12 @@ impl Component for Checkbox {
 
 impl Renderable<Checkbox> for Checkbox {
     fn view(&self) -> Html<Self> {
+        let ty = if self.radio { "radio" } else { "checkbox" };
+
         html! {
             <div class="checkbox",>
                 <input
-                    type="checkbox",
+                    type=ty,
                     checked=self.value,
                     onclick=|_| Msg::Click,
                 />
