@@ -1,8 +1,8 @@
+pub mod big_checkbox;
+pub mod checkbox;
 pub mod key_value;
 pub mod select;
 pub mod text;
-pub mod checkbox;
-pub mod big_checkbox;
 
 use std::sync::Arc;
 
@@ -20,9 +20,7 @@ impl<V> ValidationFn<V> {
 impl<V> Default for ValidationFn<V> {
     fn default() -> ValidationFn<V> {
         ValidationFn {
-            func: Arc::new(|_: V| {
-                None
-            }),
+            func: Arc::new(|_: V| None),
         }
     }
 }
@@ -33,10 +31,11 @@ impl<V> PartialEq for ValidationFn<V> {
     }
 }
 
-impl<V, FN> From<FN> for ValidationFn<V> where FN: Fn(V) -> Option<String> + 'static {
+impl<V, FN> From<FN> for ValidationFn<V>
+where
+    FN: Fn(V) -> Option<String> + 'static,
+{
     fn from(f: FN) -> ValidationFn<V> {
-        ValidationFn {
-            func: Arc::new(f),
-        }
+        ValidationFn { func: Arc::new(f) }
     }
 }

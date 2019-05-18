@@ -1,5 +1,5 @@
-use plaster::prelude::*;
 use crate::fields::ValidationFn;
+use plaster::prelude::*;
 
 /// An <input type="text" /> field
 pub struct TextField {
@@ -121,7 +121,7 @@ impl Renderable<TextField> for TextField {
                     <div class="input-error",>
                         {err}
                     </div>
-                }
+                },
             )
         } else {
             (self.class.clone(), html!(<span />))

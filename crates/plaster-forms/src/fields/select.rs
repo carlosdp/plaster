@@ -1,5 +1,5 @@
-use plaster::prelude::*;
 use crate::fields::ValidationFn;
+use plaster::prelude::*;
 
 /// An autocompleting search select field
 pub struct Select {
@@ -187,7 +187,7 @@ impl Component for Select {
 }
 
 impl Select {
-    fn filtered_options<'a>(&'a self) -> impl Iterator<Item=(usize, &'a (String, String))> + 'a {
+    fn filtered_options<'a>(&'a self) -> impl Iterator<Item = (usize, &'a (String, String))> + 'a {
         let search_term = self.search.to_lowercase();
 
         self.options
@@ -212,26 +212,25 @@ impl Renderable<Select> for Select {
         };
 
         let search_list = if self.searching {
-            let options = self.filtered_options()
-                .map(|(i, o)| {
-                    let value = o.0.to_owned();
+            let options = self.filtered_options().map(|(i, o)| {
+                let value = o.0.to_owned();
 
-                    let class = if (i as i32) == self.selected_option {
-                        "selected"
-                    } else {
-                        ""
-                    };
+                let class = if (i as i32) == self.selected_option {
+                    "selected"
+                } else {
+                    ""
+                };
 
-                    html! {
-                        <a
-                            href="",
-                            class=class,
-                            onmousedown=|e| { e.prevent_default(); Msg::Noop },
-                            onmouseenter=|_| Msg::SoftSelect(i),
-                            onclick=|e| { e.prevent_default(); Msg::Select(value.clone()) },
-                        >{&o.1}</a>
-                    }
-                });
+                html! {
+                    <a
+                        href="",
+                        class=class,
+                        onmousedown=|e| { e.prevent_default(); Msg::Noop },
+                        onmouseenter=|_| Msg::SoftSelect(i),
+                        onclick=|e| { e.prevent_default(); Msg::Select(value.clone()) },
+                    >{&o.1}</a>
+                }
+            });
 
             html! {
                 <div class="select-drop",>
@@ -252,7 +251,7 @@ impl Renderable<Select> for Select {
                         <div class="input-error",>
                             {err}
                         </div>
-                    }
+                    },
                 )
             } else {
                 (class.to_owned(), html!(<span />))
