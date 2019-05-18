@@ -116,6 +116,12 @@ impl Component for Select {
         match msg {
             Msg::Change(data) => {
                 self.search = data.value;
+                self.searching = true;
+
+                let top_option = self.filtered_options().next();
+                if let Some((i, _)) = top_option {
+                    self.selected_option = i as i32;
+                }
             }
             Msg::SoftSelect(i) => {
                 self.selected_option = i as i32;
@@ -180,6 +186,17 @@ impl Component for Select {
     }
 }
 
+impl Select {
+    fn filtered_options<'a>(&'a self) -> impl Iterator<Item=(usize, &'a (String, String))> + 'a {
+        let search_term = self.search.to_lowercase();
+
+        self.options
+            .iter()
+            .enumerate()
+            .filter(move |(_, o)| o.1.to_lowercase().contains(&search_term))
+    }
+}
+
 impl Renderable<Select> for Select {
     fn view(&self) -> Html<Self> {
         let class = if self.inline {
@@ -195,11 +212,7 @@ impl Renderable<Select> for Select {
         };
 
         let search_list = if self.searching {
-            let options = self
-                .options
-                .iter()
-                .filter(|o| o.1.to_lowercase().contains(&self.search.to_lowercase()))
-                .enumerate()
+            let options = self.filtered_options()
                 .map(|(i, o)| {
                     let value = o.0.to_owned();
 
