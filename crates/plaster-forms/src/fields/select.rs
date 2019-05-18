@@ -1,4 +1,5 @@
 use plaster::prelude::*;
+use crate::fields::ValidationFn;
 
 /// An autocompleting search select field
 pub struct Select {
@@ -8,6 +9,8 @@ pub struct Select {
     selected_option: i32,
     value: Option<String>,
     value_label: String,
+    validate: ValidationFn<Option<String>>,
+    validation_error: Option<String>,
     inline: bool,
     options: Vec<(String, String)>,
     on_change: Option<Callback<Option<String>>>,
@@ -30,6 +33,8 @@ pub struct Props {
     pub label: String,
     /// The controlled value of the input
     pub value: Option<String>,
+    /// Validation function
+    pub validate: ValidationFn<Option<String>>,
     /// Whether or not the field should be inline
     pub inline: bool,
     /// An array of options, (value, label)
@@ -63,6 +68,8 @@ impl Component for Select {
             selected_option: -1,
             value: props.value,
             value_label,
+            validate: props.validate,
+            validation_error: None,
             inline: props.inline,
             options: props.options,
             on_change: props.on_change,
@@ -98,6 +105,7 @@ impl Component for Select {
             updated = true;
         }
 
+        self.validate = props.validate;
         self.on_change = props.on_change;
         self.on_blur = props.on_blur;
 
@@ -125,6 +133,8 @@ impl Component for Select {
                 if let Some(ref callback) = self.on_change {
                     callback.emit(self.value.clone());
                 }
+
+                self.validation_error = self.validate.validate(self.value.clone());
             }
             Msg::Focus => {
                 self.searching = true;
@@ -135,6 +145,8 @@ impl Component for Select {
                 if let Some(ref callback) = self.on_blur {
                     callback.emit(());
                 }
+
+                self.validation_error = self.validate.validate(self.value.clone());
             }
             Msg::KeyDown(e) => match e.key().as_str() {
                 "ArrowUp" => {
@@ -219,6 +231,23 @@ impl Renderable<Select> for Select {
             }
         };
 
+        let (class, error) = if let Some(ref err) = self.validation_error {
+            if !self.searching {
+                (
+                    format!("{} error", class),
+                    html! {
+                        <div class="input-error",>
+                            {err}
+                        </div>
+                    }
+                )
+            } else {
+                (class.to_owned(), html!(<span />))
+            }
+        } else {
+            (class.to_owned(), html!(<span />))
+        };
+
         html! {
             <div class="select-wrapper",>
                 <input
@@ -232,6 +261,7 @@ impl Renderable<Select> for Select {
                     onblur=|_| Msg::Blur,
                     onkeydown=|e| Msg::KeyDown(e),
                 />
+                {error}
                 {search_list}
             </div>
         }
