@@ -476,6 +476,43 @@ impl_action! {
     }
 }
 
+/// A wrapper for an action that is non-standard, such as custom events from Web Components
+pub struct GenericAction<F> {
+    action: &'static str,
+    handler: Option<F>,
+}
+
+impl<F> GenericAction<F> {
+    /// Creates a new generic action wrapper from an event name and handler
+    pub fn new(action: &'static str, handler: F) -> GenericAction<F> {
+        GenericAction {
+            action,
+            handler: Some(handler),
+        }
+    }
+}
+
+impl<T, COMP> Listener<COMP> for GenericAction<T>
+where
+    T: Fn(web_sys::Event) -> COMP::Message + 'static,
+    COMP: Component + Renderable<COMP>,
+{
+    fn kind(&self) -> &'static str {
+        self.action
+    }
+
+    fn attach(&mut self, element: &Element, mut activator: Scope<COMP>) -> EventListenerHandle {
+        let handler = self.handler.take().expect("tried to attach listener twice");
+        let listener = Closure::wrap(Box::new(move |event: web_sys::Event| {
+            debug!("Event handler: generic");
+            event.stop_propagation();
+            let msg = handler(event);
+            activator.send_message(msg);
+        }) as Box<dyn FnMut(web_sys::Event)>);
+        EventListenerHandle::new(element, listener, self.action)
+    }
+}
+
 /// A type representing data from `oninput` event.
 #[derive(Debug)]
 pub struct InputData {

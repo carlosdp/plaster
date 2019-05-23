@@ -46,7 +46,7 @@ macro_rules! html_impl {
     };
     // Start of opening tag
     ($stack:ident (< $starttag:ident $($tail:tt)*)) => {
-        let vtag = $crate::virtual_dom::VTag::new(stringify!($starttag));
+        let vtag = $crate::virtual_dom::VTag::new(stringify!($starttag).replace("_", "-"));
         $stack.push(vtag.into());
         html_impl! { @vtag $stack ($($tail)*) }
     };
@@ -210,6 +210,15 @@ macro_rules! html_impl {
         $crate::macros::attach_listener(&mut $stack, Box::new(listener));
         html_impl! { @vtag $stack ($($tail)*) }
     };
+    // PATTERN: [action]=expression,
+    // Used for non-standard events
+    (@vtag $stack:ident ([$action:ident] = $handler:expr, $($tail:tt)*)) => {
+        // Catch value to a separate variable for clear error messages
+        let handler = $handler;
+        let listener = $crate::html::GenericAction::new(stringify!($action), handler);
+        $crate::macros::attach_listener(&mut $stack, Box::new(listener));
+        html_impl! { @vtag $stack ($($tail)*) }
+    };
     // Attributes:
     (@vtag $stack:ident (href = $href:expr, $($tail:tt)*)) => {
         let href: $crate::html::Href = $href.into();
@@ -311,6 +320,7 @@ pub fn set_value_or_attribute<COMP: Component, T: ToString>(stack: &mut Stack<CO
 pub fn set_kind<COMP: Component, T: ToString>(stack: &mut Stack<COMP>, value: T) {
     if let Some(&mut VNode::VTag(ref mut vtag)) = stack.last_mut() {
         vtag.set_kind(&value);
+        vtag.add_attribute("type", &value);
     } else {
         panic!("no tag to set type: {}", value.to_string());
     }
@@ -389,7 +399,7 @@ pub fn child_to_parent<COMP: Component>(stack: &mut Stack<COMP>, endtag: Option<
         // TODO Check it during compilation. Possible?
         if let (&mut VNode::VTag(ref mut vtag), Some(endtag)) = (&mut node, endtag) {
             let starttag = vtag.tag();
-            if !starttag.eq_ignore_ascii_case(endtag) {
+            if !starttag.eq_ignore_ascii_case(&endtag.replace("_", "-")) {
                 panic!("wrong closing tag: <{}> -> </{}>", starttag, endtag);
             }
         }

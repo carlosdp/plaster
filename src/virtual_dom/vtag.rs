@@ -47,7 +47,7 @@ impl<COMP: Component> VTag<COMP> {
     /// Creates a new `VTag` instance with `tag` name (cannot be changed later in DOM).
     pub fn new<S: Into<Cow<'static, str>>>(tag: S) -> Self {
         VTag {
-            tag: tag.into(),
+            tag: tag.into().replace("_", "-").into(),
             reference: None,
             classes: Classes::new(),
             attributes: Attributes::new(),
