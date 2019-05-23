@@ -127,17 +127,46 @@ impl Renderable<TextField> for TextField {
             (self.class.clone(), html!(<span />))
         };
 
-        html! {
-            <div class=class,>
-                <input
-                    type=ty,
-                    placeholder=&self.label,
-                    value=&self.value,
-                    oninput=|data| Msg::Change(data),
-                    onblur=|_| Msg::Blur,
-                />
-                {error}
-            </div>
+        #[cfg(not(feature = "ionic"))]
+        {
+            html! {
+                <div class=class,>
+                    <input
+                        type=ty,
+                        placeholder=&self.label,
+                        value=&self.value,
+                        oninput=|data| Msg::Change(data),
+                        onblur=|_| Msg::Blur,
+                    />
+                    {error}
+                </div>
+            }
+        }
+
+        #[cfg(feature = "ionic")]
+        {
+            use wasm_bindgen::JsCast;
+
+            #[derive(serde_derive::Deserialize)]
+            struct Detail {
+                value: String,
+            }
+
+            html! {
+                <ion_item>
+                    <ion_input
+                        type=ty,
+                        placeholder=&self.label,
+                        value=&self.value,
+                        [ionChange]=|event: Event| {
+                            let c: web_sys::CustomEvent = event.dyn_into().expect("is not custom event");
+                            let detail: Detail = c.detail().into_serde().unwrap();
+                            Msg::Change(InputData { value: detail.value })
+                        },
+                    />
+                    {error}
+                </ion_item>
+            }
         }
     }
 }
