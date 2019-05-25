@@ -20,7 +20,11 @@ pub struct Router<T> {
 impl<T> Router<T> {
     pub fn new(callback: Callback<()>) -> Router<T> {
         let win = window().expect("need a window context");
-        let path = win.location().pathname().unwrap_or("/".to_string());
+        let path = if cfg!(not(feature = "mobile")) {
+            win.location().pathname().unwrap_or("/".to_string())
+        } else {
+            "/".to_string()
+        };
         trace!("initial route: {}", &path);
         let current_path = Arc::new(Mutex::new(path));
         let current_path_c = current_path.clone();
@@ -41,8 +45,11 @@ impl<T> Router<T> {
 
         win.add_event_listener_with_callback("plasterroutechange", listener_function)
             .expect("could not attach global event listener");
-        win.add_event_listener_with_callback("popstate", listener_function)
-            .expect("could not attach popstate event listener");
+
+        if cfg!(not(feature = "mobile")) {
+            win.add_event_listener_with_callback("popstate", listener_function)
+                .expect("could not attach popstate event listener");
+        }
 
         Router {
             routes: Vec::new(),
@@ -62,7 +69,9 @@ impl<T> Router<T> {
 
     pub fn navigate(&mut self, path: &str) {
         *self.current_path.lock().unwrap() = path.to_string();
-        self.push_state();
+        if cfg!(not(feature = "mobile")) {
+            self.push_state();
+        }
         self.callback.emit(());
     }
 
@@ -72,6 +81,10 @@ impl<T> Router<T> {
             .recognize(&self.current_path.lock().unwrap())
             .ok();
         route_match.map(|m| self.routes.get(m.handler.clone()).unwrap()(m.params))
+    }
+
+    pub fn current_route(&self) -> String {
+        self.current_path.lock().unwrap().clone()
     }
 
     fn push_state(&self) {
