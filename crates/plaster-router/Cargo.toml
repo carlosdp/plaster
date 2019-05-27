@@ -1,6 +1,6 @@
 [package]
 name = "plaster-router"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Carlos Diaz-Padron <carlosdiazpadron@gmail.com>"]
 repository = "https://github.com/carlosdp/plaster"
 homepage = "https://github.com/carlosdp/plaster"
@@ -16,9 +16,12 @@ edition = "2018"
 plaster = "0.2"
 plaster-router-macro = { version = "0.1", path = "../plaster-router-macro" }
 route-recognizer = "0.1"
-wasm-bindgen = "0.2"
+wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 js-sys = "0.3"
 log = "0.4"
+serde = "1"
+serde_derive = "1"
+serde_json = "1"
 
 [dependencies.web-sys]
 version = "0.3"
@@ -27,7 +30,9 @@ features = [
   "EventTarget",
   "History",
   "Location",
-  "Window"
+  "Window",
+  "CustomEvent",
+  "CustomEventInit"
 ]
 
 [dev-dependencies]

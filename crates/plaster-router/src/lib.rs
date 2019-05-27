@@ -1,10 +1,11 @@
 use js_sys::Function;
 use plaster::callback::Callback;
 use route_recognizer::{Params, Router as RecRouter};
+use serde_derive::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::{JsCast, JsValue};
-use web_sys::{window, Event};
+use web_sys::{window, CustomEvent, CustomEventInit};
 
 use log::trace;
 pub use plaster_router_macro::Routes;
@@ -13,7 +14,7 @@ pub struct Router<T> {
     routes: Vec<fn(Params) -> T>,
     index_router: RecRouter<usize>,
     current_path: Arc<Mutex<String>>,
-    listener: Closure<dyn FnMut(JsValue)>,
+    listener: Closure<dyn FnMut(CustomEvent)>,
     callback: Callback<()>,
 }
 
@@ -30,14 +31,13 @@ impl<T> Router<T> {
         let current_path_c = current_path.clone();
         let callback_c = callback.clone();
 
-        let listener_callback = Closure::wrap(Box::new(move |_: JsValue| {
-            let path = window()
-                .expect("need a window context")
-                .location()
-                .pathname()
-                .unwrap_or("/".to_string());
-            trace!("route change: {}", &path);
-            *current_path_c.lock().unwrap() = path;
+        let listener_callback = Closure::wrap(Box::new(move |e: CustomEvent| {
+            let ev: RouteEvent = e
+                .detail()
+                .into_serde()
+                .expect("could not deserialize route event");
+            trace!("route change: {}", &ev.route);
+            *current_path_c.lock().unwrap() = ev.route;
             callback_c.emit(());
         }) as Box<dyn FnMut(_)>);
 
@@ -121,10 +121,28 @@ pub trait Routes<T> {
 
 pub fn route_to(path: &str) {
     let win = window().expect("need window context");
-    win.history()
-        .expect("history API unavailable")
-        .push_state_with_url(&JsValue::NULL, "", Some(path))
-        .expect("could not pushState");
-    win.dispatch_event(&Event::new("plasterroutechange").expect("could not create event"))
-        .expect("could not dispatch event");
+
+    if cfg!(not(feature = "mobile")) {
+        win.history()
+            .expect("history API unavailable")
+            .push_state_with_url(&JsValue::NULL, "", Some(path))
+            .expect("could not pushState");
+    }
+
+    let mut init = CustomEventInit::new();
+    init.detail(
+        &JsValue::from_serde(&RouteEvent {
+            route: path.to_owned(),
+        })
+        .unwrap(),
+    );
+    let event = CustomEvent::new_with_event_init_dict("plasterroutechange", &init)
+        .expect("could not create CustomEvent");
+    win.dispatch_event(&event)
+        .expect("could not dispatch route change");
+}
+
+#[derive(Serialize, Deserialize)]
+struct RouteEvent {
+    route: String,
 }
