@@ -16,7 +16,7 @@ pub use callback::Callback;
 
 pub use web_sys::{
     DragEvent, Event, FocusEvent, InputEvent, KeyEvent, KeyboardEvent, MouseEvent,
-    MouseScrollEvent, PointerEvent,
+    MouseScrollEvent, Node as HtmlNode, PointerEvent,
 };
 
 // todo: figure out what to do with this
