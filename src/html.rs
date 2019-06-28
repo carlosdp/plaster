@@ -74,7 +74,7 @@ pub trait Component: Sized + 'static {
     }
     /// This method is called when the component is first mounted. It does not wait for children to
     /// render, only the top-level DOM element.
-    fn on_mount(&self, _node: &Node) {}
+    fn on_mount(&mut self, _node: &Node) {}
 }
 
 /// Should be rendered relative to context and component environment.
@@ -303,7 +303,7 @@ where
                     &env,
                 );
                 if let Some(ref node) = node {
-                    this.component.as_ref().unwrap().on_mount(node);
+                    this.component.as_mut().unwrap().on_mount(node);
                 }
                 if let Some(ref mut cell) = this.occupied {
                     *cell.borrow_mut() = node;
