@@ -87,6 +87,10 @@ impl<T> Router<T> {
         self.current_path.lock().unwrap().clone()
     }
 
+    pub fn set_route(&self, path: &str) {
+        *self.current_path.lock().unwrap() = path.to_string();
+    }
+
     fn push_state(&self) {
         match window().expect("need a window context").history() {
             Ok(history) => {
