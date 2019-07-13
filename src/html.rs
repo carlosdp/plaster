@@ -465,7 +465,12 @@ impl_action! {
         match this.node_name().as_ref() {
             "INPUT" => {
                 let input: HtmlInputElement = this.clone().dyn_into().unwrap();
-                ChangeData::Value(input.value())
+
+                if input.type_() == "file" {
+                    ChangeData::Files(input.files())
+                } else {
+                    ChangeData::Value(input.value())
+                }
             }
             "TEXTAREA" => {
                 let tae: HtmlTextAreaElement = this.clone().dyn_into().unwrap();
@@ -539,6 +544,8 @@ pub struct InputData {
 pub enum ChangeData {
     /// Value of the element in cases of `<input>`, `<textarea>`
     Value(String),
+    /// Files uploaded in the case of a file `<input>`.
+    Files(Option<web_sys::FileList>),
     /// SelectElement in case of `<select>` element. You can use one of methods of SelectElement
     /// to collect your required data such as: `value`, `selected_index`, `selected_indices` or
     /// `selected_values`. You can also iterate throught `selected_options` yourself.
