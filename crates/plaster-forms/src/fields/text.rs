@@ -7,8 +7,6 @@ pub struct TextField {
     value: String,
     password: bool,
     class: String,
-    inline: bool,
-    options: Vec<String>,
     validate: ValidationFn<String>,
     validation_error: Option<String>,
     on_change: Option<Callback<String>>,
@@ -30,10 +28,6 @@ pub struct Props {
     pub password: bool,
     /// HTML class
     pub class: String,
-    /// Whether or not the field should be inline
-    pub inline: bool,
-    /// If it's an autocomplete, an array of options
-    pub options: Vec<String>,
     /// A function that returns a validation error
     pub validate: ValidationFn<String>,
     /// A callback that is fired when the user changes the input value
@@ -52,8 +46,6 @@ impl Component for TextField {
             value: props.value.unwrap_or(String::new()),
             password: props.password,
             class: props.class,
-            inline: props.inline,
-            options: props.options,
             validate: props.validate,
             validation_error: None,
             on_change: props.on_change,

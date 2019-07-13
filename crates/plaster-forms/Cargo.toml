@@ -1,6 +1,6 @@
 [package]
 name = "plaster-forms"
-version = "0.1.13"
+version = "0.1.14"
 authors = ["Carlos Diaz-Padron <carlosdiazpadron@gmail.com>"]
 repository = "https://github.com/carlosdp/plaster"
 homepage = "https://github.com/carlosdp/plaster"
@@ -22,13 +22,18 @@ wasm-bindgen = { version = "0.2", features = ["serde-serialize"], optional = tru
 [dependencies.web-sys]
 version = "0.3"
 features = [
-  "CustomEvent",
-  "Event"
+  "File",
 ]
-optional = true
 
 [dev-dependencies]
 wasm-bindgen = "=0.2.40"
 
 [features]
-ionic = ["wasm-bindgen", "web-sys", "serde", "serde_derive"]
+ionic = [
+  "wasm-bindgen",
+  "web-sys/CustomEvent",
+  "web-sys/Event",
+  "web-sys/HtmlInputElement",
+  "serde",
+  "serde_derive"
+]

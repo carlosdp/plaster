@@ -1,5 +1,6 @@
 pub mod big_checkbox;
 pub mod checkbox;
+pub mod file;
 pub mod key_value;
 pub mod select;
 pub mod text;

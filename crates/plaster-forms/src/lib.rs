@@ -3,6 +3,13 @@ extern crate plaster;
 
 pub mod fields;
 
+pub mod prelude {
+    pub use crate::fields::{
+        big_checkbox::BigCheckbox, checkbox::Checkbox, file::File, key_value::KeyValue,
+        select::Select, text::TextField, ValidationFn,
+    };
+}
+
 use plaster::prelude::*;
 
 pub trait Form {
