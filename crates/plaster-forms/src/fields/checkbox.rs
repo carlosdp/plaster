@@ -65,12 +65,24 @@ impl Renderable<Checkbox> for Checkbox {
     fn view(&self) -> Html<Self> {
         let ty = if self.radio { "radio" } else { "checkbox" };
 
+        #[cfg(not(feature = "ionic"))]
         html! {
             <div class="checkbox",>
                 <input
                     type=ty,
                     checked=self.value,
                     onclick=|_| Msg::Click,
+                />
+                <div class="checkbox-label",>{&self.label}</div>
+            </div>
+        }
+
+        #[cfg(feature = "ionic")]
+        html! {
+            <div class="checkbox",>
+                <ion_checkbox
+                    checked=self.value,
+                    [ionChange]=|_| Msg::Click,
                 />
                 <div class="checkbox-label",>{&self.label}</div>
             </div>
