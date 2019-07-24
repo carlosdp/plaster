@@ -82,16 +82,6 @@ impl Component for Select {
 
         if props.value != self.value {
             self.value = props.value;
-            self.value_label = if let Some(ref value) = self.value {
-                props
-                    .options
-                    .iter()
-                    .find(|x| &x.0 == value)
-                    .map(|x| x.1.to_owned())
-                    .unwrap_or(String::new())
-            } else {
-                String::new()
-            };
             updated = true;
         }
 
@@ -103,6 +93,18 @@ impl Component for Select {
         if props.label != self.label {
             self.label = props.label;
             updated = true;
+        }
+
+        if updated {
+            self.value_label = if let Some(ref value) = self.value {
+                self.options
+                    .iter()
+                    .find(|x| &x.0 == value)
+                    .map(|x| x.1.to_owned())
+                    .unwrap_or(String::new())
+            } else {
+                String::new()
+            };
         }
 
         self.validate = props.validate;
